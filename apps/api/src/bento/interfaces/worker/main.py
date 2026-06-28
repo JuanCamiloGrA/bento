@@ -4,12 +4,20 @@ import os
 import signal
 from pathlib import Path
 
+from bento.adapters.embeddings import (
+    DisabledEmbeddingProvider,
+    JinaOmniNanoGgufAdapter,
+    MockEmbeddingProvider,
+    SQLiteEmbeddingTextCatalog,
+)
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
 from bento.adapters.media import LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
 from bento.adapters.ocr import DisabledOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
+from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
+from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.media import MediaProcessingService
 from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
@@ -73,7 +81,35 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
         pdf_renderer=Pypdfium2PDFPageRenderer(data_dir / "cache" / "ocr" / "pdf-pages"),
         pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
     )
-    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr)
+    embedding = EmbeddingIndexingService(
+        assets=assets,
+        blob_refs=blob_refs,
+        resolver=resolver,
+        provider=_embedding_provider(data_dir),
+        index=SQLiteVecSearchIndex(session_factory, clock, dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768"))),
+        manifest=manifest,
+        clock=clock,
+        text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
+    )
+    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr, embedding=embedding)
+
+
+def _embedding_provider(data_dir: Path) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:
+    provider = os.getenv("BENTO_EMBEDDING_PROVIDER", "disabled").strip().lower()
+    if provider == "mock":
+        return MockEmbeddingProvider(dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768")))
+    if provider == "jina":
+        return JinaOmniNanoGgufAdapter(
+            model_path=Path(
+                os.getenv(
+                    "BENTO_EMBEDDING_MODEL_PATH",
+                    str(data_dir / "models" / "jina-embeddings-v5-omni-nano.gguf"),
+                )
+            ),
+            endpoint_url=os.getenv("BENTO_EMBEDDING_SERVER_URL", "http://127.0.0.1:8080/v1/embeddings"),
+            dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768")),
+        )
+    return DisabledEmbeddingProvider()
 
 
 def main() -> None:

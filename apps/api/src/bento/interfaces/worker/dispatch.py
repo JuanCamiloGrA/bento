@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
 from bento.application.media import MediaProcessingService
 from bento.domain.jobs import Job, JobStatus, JobType
@@ -20,6 +21,7 @@ class WorkerDispatcher:
     clock: ClockPort
     worker_id: str
     ocr: OCRIndexingService | None = None
+    embedding: EmbeddingIndexingService | None = None
 
     async def process_one(self) -> bool:
         job = await self.jobs.claim_next(self.worker_id)
@@ -45,6 +47,12 @@ class WorkerDispatcher:
                 raise RuntimeError("No OCR handler registered")
             asset_id = job.asset_id or _payload_asset_id(job)
             await self.ocr.process_asset_ocr(asset_id)
+            return
+        if job.type == JobType.EMBEDDING:
+            if self.embedding is None:
+                raise RuntimeError("No embedding handler registered")
+            asset_id = job.asset_id or _payload_asset_id(job)
+            await self.embedding.process_asset_embedding(asset_id)
             return
         raise RuntimeError(f"No handler registered for job type {job.type.value}")
 
