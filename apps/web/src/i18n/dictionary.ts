@@ -1,22 +1,74 @@
-const es = {
+export const es = {
+  "app.brand": "Bento",
+  "app.locale": "es",
+  "app.status.idle": "Listo",
+  "app.status.detail": "Servicios locales pendientes de conectar",
+  "common.close": "Cerrar",
+  "common.error": "Error",
+  "common.loading": "Cargando",
+  "common.menu": "Menu",
+  "common.retry": "Reintentar",
+  "common.select": "Seleccionar",
+  "common.thumbnail": "Miniatura",
+  "nav.albums": "Albumes",
+  "nav.documents": "Documentos",
+  "nav.drive": "Drive",
+  "nav.favorites": "Favoritos",
+  "nav.jobs": "Trabajos",
   "nav.label": "Navegacion principal",
   "nav.photos": "Fotos",
-  "nav.drive": "Drive",
-  "nav.documents": "Documentos",
-  "nav.jobs": "Trabajos",
+  "nav.search": "Busqueda",
   "nav.settings": "Ajustes",
+  "route.albums.body": "La lista de albumes queda reservada para el agente de Fotos.",
+  "route.albums.title": "Albumes",
+  "route.albumDetail.body": "El detalle del album se conectara cuando exista el modulo de albumes.",
+  "route.albumDetail.title": "Detalle de album",
+  "route.documents.body": "La vista filtrada de documentos se implementara junto al modulo de busqueda.",
+  "route.documents.title": "Documentos",
+  "route.drive.body": "El navegador de archivos queda listo para recibir componentes de Drive.",
+  "route.drive.title": "Drive",
+  "route.driveFolder.body": "La carpeta seleccionada se resolvera cuando exista la API de Drive.",
+  "route.driveFolder.title": "Carpeta",
+  "route.favorites.body": "Los favoritos se conectaran cuando Fotos publique sus acciones.",
+  "route.favorites.title": "Favoritos",
+  "route.jobs.body": "La cola, errores y reintentos se integraran en la etapa de Jobs.",
+  "route.jobs.title": "Trabajos",
+  "route.notFound.body": "La ruta solicitada no existe en el shell actual.",
+  "route.notFound.title": "Ruta no encontrada",
+  "route.photoDetail.body": "El visor profundo de foto o video se implementara en la etapa de Fotos.",
+  "route.photoDetail.title": "Vista de foto",
+  "route.photos.body": "La linea de tiempo visual se implementara en la etapa de Fotos.",
+  "route.photos.title": "Fotos",
+  "route.search.body": "Los resultados globales y filtros se conectaran con la API de busqueda.",
+  "route.search.title": "Busqueda",
+  "route.settings.body": "Estado de almacenamiento, OCR y embeddings se integrara en Ajustes.",
+  "route.settings.title": "Ajustes",
   "search.label": "Busqueda global",
   "search.placeholder": "Buscar por nombre, metadata o texto indexado",
-  "shell.title": "Bento local",
-  "shell.status": "El shell esta listo para conectar las superficies del producto.",
-  "photos.placeholderTitle": "Fotos",
-  "photos.placeholderBody": "La linea de tiempo se implementara en una etapa posterior.",
-  "drive.placeholderTitle": "Drive",
-  "drive.placeholderBody": "El navegador de archivos se implementara en una etapa posterior.",
+  "search.shortcut": "Ctrl K",
+  "shell.mainLabel": "Contenido principal",
+  "shell.skipToContent": "Saltar al contenido",
+  "shell.statusLabel": "Estado del sistema",
+  "shell.topbarLabel": "Barra superior",
 } as const;
 
+export const dictionaries = {
+  es,
+} as const;
+
+export type Locale = keyof typeof dictionaries;
 export type MessageKey = keyof typeof es;
 
-export function t(key: MessageKey): string {
-  return es[key];
+export const defaultLocale: Locale = "es";
+
+export function t(key: MessageKey, locale: Locale = defaultLocale): string {
+  return dictionaries[locale][key];
+}
+
+export function hasMessage(key: string, locale: Locale = defaultLocale): key is MessageKey {
+  return Object.prototype.hasOwnProperty.call(dictionaries[locale], key);
+}
+
+export function messageKeys(locale: Locale = defaultLocale): MessageKey[] {
+  return Object.keys(dictionaries[locale]) as MessageKey[];
 }
