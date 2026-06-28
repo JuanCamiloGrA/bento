@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from bento.application.indexing import OCRIndexingService
 from bento.application.media import MediaProcessingService
 from bento.domain.jobs import Job, JobStatus, JobType
 from bento.ports.jobs import JobQueuePort
@@ -18,6 +19,7 @@ class WorkerDispatcher:
     media: MediaProcessingService
     clock: ClockPort
     worker_id: str
+    ocr: OCRIndexingService | None = None
 
     async def process_one(self) -> bool:
         job = await self.jobs.claim_next(self.worker_id)
@@ -37,6 +39,12 @@ class WorkerDispatcher:
         if job.type in {JobType.THUMBNAIL, JobType.PDF_THUMBNAIL, JobType.VIDEO_THUMBNAIL}:
             asset_id = job.asset_id or _payload_asset_id(job)
             await self.media.process_asset_media(asset_id)
+            return
+        if job.type == JobType.OCR:
+            if self.ocr is None:
+                raise RuntimeError("No OCR handler registered")
+            asset_id = job.asset_id or _payload_asset_id(job)
+            await self.ocr.process_asset_ocr(asset_id)
             return
         raise RuntimeError(f"No handler registered for job type {job.type.value}")
 
