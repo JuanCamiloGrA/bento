@@ -1,0 +1,38 @@
+:root {
+  --color-bg: #f7f7f4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eef1f0;
+  --color-border: #d7dbd8;
+  --color-text: #1d2522;
+  --color-text-muted: #637069;
+  --color-accent: #0f766e;
+  --color-accent-muted: #dcefed;
+  --color-danger: #b42318;
+  --color-warning: #b7791f;
+  --color-success: #287a3e;
+  --shadow-dialog: 0 16px 36px rgb(29 37 34 / 14%);
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --size-control-dense: 32px;
+  --size-control: 36px;
+  --size-thumb-sm: 256px;
+  --size-thumb-md: 512px;
+  --size-preview: 1600px;
+}
+
+@theme {
+  --color-app-bg: var(--color-bg);
+  --color-app-surface: var(--color-surface);
+  --color-app-surface-muted: var(--color-surface-muted);
+  --color-app-border: var(--color-border);
+  --color-app-text: var(--color-text);
+  --color-app-text-muted: var(--color-text-muted);
+  --color-app-accent: var(--color-accent);
+  --color-app-accent-muted: var(--color-accent-muted);
+  --color-app-danger: var(--color-danger);
+  --color-app-warning: var(--color-warning);
+  --color-app-success: var(--color-success);
+  --shadow-app-dialog: var(--shadow-dialog);
+  --radius-app-card: var(--radius-card);
+  --radius-app-control: var(--radius-control);
+}
