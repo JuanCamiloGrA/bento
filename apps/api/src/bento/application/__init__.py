@@ -1,1 +1,1 @@
-"""Application use-case layer placeholder."""
+"""Application use-case contracts."""
