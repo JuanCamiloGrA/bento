@@ -16,8 +16,10 @@ from bento.domain.assets import Asset, AssetMode
 from bento.domain.errors import DomainError, UnsupportedMediaTypeError, ValidationFailedError
 from bento.domain.storage import BlobRef
 from bento.infrastructure.settings import Settings
+from bento.interfaces.http.routes_search import router as search_router
 
 router = APIRouter()
+router.include_router(search_router)
 
 
 class HealthResponse(BaseModel):
