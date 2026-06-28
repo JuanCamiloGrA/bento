@@ -1,0 +1,246 @@
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import type { DriveApi, DriveAsset, DriveFolder, DriveItemsResponse, DriveSearchResponse } from "../../api/drive";
+import { DriveBrowser } from "../../features/drive/DriveBrowser";
+
+const folder: DriveFolder = {
+  created_at: "2026-01-01T00:00:00Z",
+  id: "folder_docs",
+  name: "Documentos",
+  parent_id: null,
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const asset: DriveAsset = {
+  created_at: "2026-01-01T00:00:00Z",
+  favorite: false,
+  filename: "factura.pdf",
+  folder_id: null,
+  id: "asset_invoice",
+  kind: "document",
+  mime_type: "application/pdf",
+  mode: "drive",
+  processing_state: "thumbnail_pending",
+  sha256: "abc",
+  size_bytes: 2048,
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+function createApi(overrides: Partial<DriveApi> = {}): DriveApi {
+  return {
+    createFolder: vi.fn(async ({ name, parentId }) => ({
+      created_at: "2026-01-01T00:00:00Z",
+      id: "folder_new",
+      name,
+      parent_id: parentId,
+      updated_at: "2026-01-01T00:00:00Z",
+    })),
+    deleteAsset: vi.fn(async () => asset),
+    deleteFolder: vi.fn(async () => folder),
+    downloadUrl: (assetId) => `/api/assets/${assetId}/download`,
+    listItems: vi.fn(async (): Promise<DriveItemsResponse> => ({
+      breadcrumbs: [],
+      items: [
+        { folder, type: "folder" },
+        { asset, type: "asset" },
+      ],
+      next_cursor: null,
+    })),
+    moveAsset: vi.fn(async () => asset),
+    moveFolder: vi.fn(async () => folder),
+    previewUrl: (assetId) => `/api/assets/${assetId}/preview`,
+    renameAsset: vi.fn(async ({ name }) => ({ ...asset, filename: name })),
+    renameFolder: vi.fn(async ({ name }) => ({ ...folder, name })),
+    search: vi.fn(async (): Promise<DriveSearchResponse> => ({
+      facets: [],
+      items: [],
+      next_cursor: null,
+    })),
+    thumbnailUrl: (assetId) => `/api/assets/${assetId}/thumbnail`,
+    uploadFiles: vi.fn(async () => [asset]),
+    ...overrides,
+  };
+}
+
+describe("DriveBrowser", () => {
+  it("renders folder listings with breadcrumbs and toggles list layout", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+
+    expect(await screen.findByRole("heading", { name: "Drive" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Ruta de Drive" })).toHaveTextContent("Raiz");
+    expect(await screen.findByText("Documentos")).toBeInTheDocument();
+    expect(screen.getByText("factura.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Indexando")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Lista" }));
+
+    expect(screen.getAllByRole("list")).toHaveLength(2);
+  });
+
+  it("uploads files from the file picker and drag-and-drop", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    const picker = screen.getByLabelText("Subir archivos");
+    const picked = new File(["uno"], "uno.txt", { type: "text/plain" });
+    fireEvent.change(picker, { target: { files: [picked] } });
+
+    await waitFor(() => expect(api.uploadFiles).toHaveBeenCalledWith({ files: [picked], folderId: null }));
+
+    const dropped = new File(["dos"], "dos.txt", { type: "text/plain" });
+    fireEvent.drop(screen.getByRole("region", { name: "Drive" }), {
+      dataTransfer: { files: [dropped] },
+    });
+
+    await waitFor(() => expect(api.uploadFiles).toHaveBeenCalledWith({ files: [dropped], folderId: null }));
+  });
+
+  it("renames assets and folders from the action menu", async () => {
+    const api = createApi();
+    const assetView = render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    openMenu("Acciones factura.pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Renombrar" }));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "recibo.pdf" } });
+    submitDialog("Guardar");
+
+    await waitFor(() => expect(api.renameAsset).toHaveBeenCalledWith({ assetId: "asset_invoice", name: "recibo.pdf" }));
+    assetView.unmount();
+
+    const folderView = render(<DriveBrowser api={api} />);
+    await screen.findByText("Documentos");
+
+    openMenu("Acciones Documentos");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Renombrar" }));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Archivo" } });
+    submitDialog("Guardar");
+
+    await waitFor(() => expect(api.renameFolder).toHaveBeenCalledWith({ folderId: "folder_docs", name: "Archivo" }));
+    folderView.unmount();
+  });
+
+  it("moves assets and folders from the action menu", async () => {
+    const api = createApi();
+    const assetView = render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    openMenu("Acciones factura.pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mover" }));
+    fireEvent.change(await screen.findByLabelText("ID de carpeta destino"), { target: { value: "folder_docs" } });
+    submitDialog("Guardar");
+
+    await waitFor(() => expect(api.moveAsset).toHaveBeenCalledWith({ assetId: "asset_invoice", folderId: "folder_docs" }));
+    assetView.unmount();
+
+    const folderView = render(<DriveBrowser api={api} />);
+    await screen.findByText("Documentos");
+
+    openMenu("Acciones Documentos");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mover" }));
+    fireEvent.change(await screen.findByLabelText("ID de carpeta destino"), { target: { value: "" } });
+    submitDialog("Guardar");
+
+    await waitFor(() => expect(api.moveFolder).toHaveBeenCalledWith({ folderId: "folder_docs", parentId: null }));
+    folderView.unmount();
+  });
+
+  it("deletes assets and folders from the action menu", async () => {
+    const api = createApi();
+    const assetView = render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    openMenu("Acciones factura.pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+    submitDialog("Eliminar");
+
+    await waitFor(() => expect(api.deleteAsset).toHaveBeenCalledWith("asset_invoice"));
+    assetView.unmount();
+
+    const folderView = render(<DriveBrowser api={api} />);
+    await screen.findByText("Documentos");
+
+    openMenu("Acciones Documentos");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+    submitDialog("Eliminar");
+
+    await waitFor(() => expect(api.deleteFolder).toHaveBeenCalledWith("folder_docs"));
+    folderView.unmount();
+  });
+
+  it("renders download and preview links for files", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    expect(screen.getByRole("link", { name: "Vista previa" })).toHaveAttribute(
+      "href",
+      "/api/assets/asset_invoice/preview",
+    );
+    expect(screen.getByRole("link", { name: "Descargar" })).toHaveAttribute(
+      "href",
+      "/api/assets/asset_invoice/download",
+    );
+  });
+
+  it("opens the context menu with the keyboard and returns focus on escape", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    const menuButton = screen.getByRole("button", { name: "Acciones factura.pdf" });
+    menuButton.focus();
+    fireEvent.click(menuButton);
+
+    expect(screen.getByRole("menuitem", { name: "Renombrar" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(menuButton).toHaveFocus();
+  });
+
+  it("calls Drive scoped search with the current folder id", async () => {
+    const api = createApi({
+      search: vi.fn(async (): Promise<DriveSearchResponse> => ({
+        facets: [],
+        items: [
+          {
+            asset_id: "asset_invoice",
+            id: "hit_invoice",
+            processing_state: "indexed",
+            reason: "nombre de archivo",
+            score: 1,
+            subtitle: null,
+            thumbnail_url: null,
+            title: "factura.pdf",
+            type: "asset",
+          },
+        ],
+        next_cursor: null,
+      })),
+    });
+
+    render(<DriveBrowser api={api} initialFolderId="folder_docs" />);
+    await screen.findByText("factura.pdf");
+
+    fireEvent.change(screen.getByLabelText("Buscar en esta carpeta"), { target: { value: "factura" } });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    await waitFor(() => expect(api.search).toHaveBeenCalledWith({ folderId: "folder_docs", query: "factura" }));
+    expect(await screen.findByText("nombre de archivo")).toBeInTheDocument();
+  });
+});
+
+function openMenu(name: string) {
+  const button = screen.getByRole("button", { name });
+  fireEvent.click(button);
+}
+
+function submitDialog(name: string) {
+  const dialog = screen.getByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name }));
+}
