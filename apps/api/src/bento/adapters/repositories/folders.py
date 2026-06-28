@@ -1,0 +1,112 @@
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from bento.adapters.repositories.ids import new_id
+from bento.adapters.repositories.mappers import asset_from_model, folder_from_model, folder_to_model
+from bento.domain.drive import DriveItem, DriveItemType, Folder
+from bento.infrastructure.db.engine import session_scope
+from bento.infrastructure.db.models import AssetModel, FolderModel
+
+
+class SQLiteFolderRepository:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
+
+    async def next_id(self) -> str:
+        return new_id("folder")
+
+    async def get(self, folder_id: str) -> Folder | None:
+        with session_scope(self._session_factory) as session:
+            model = session.scalar(
+                select(FolderModel).where(FolderModel.id == folder_id, FolderModel.deleted_at.is_(None))
+            )
+            return folder_from_model(model) if model is not None else None
+
+    async def add(self, folder: Folder) -> None:
+        with session_scope(self._session_factory) as session:
+            session.add(folder_to_model(folder))
+
+    async def save(self, folder: Folder) -> None:
+        with session_scope(self._session_factory) as session:
+            session.merge(folder_to_model(folder))
+
+    async def descendant_ids(self, folder_id: str) -> set[str]:
+        with session_scope(self._session_factory) as session:
+            descendants: set[str] = set()
+            frontier = [folder_id]
+            while frontier:
+                children = list(
+                    session.scalars(
+                        select(FolderModel.id).where(
+                            FolderModel.parent_id.in_(frontier),
+                            FolderModel.deleted_at.is_(None),
+                        )
+                    )
+                )
+                new_children = [child_id for child_id in children if child_id not in descendants]
+                descendants.update(new_children)
+                frontier = new_children
+            return descendants
+
+    async def list_items(
+        self,
+        *,
+        folder_id: str | None,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> tuple[tuple[DriveItem, ...], str | None]:
+        offset = _decode_cursor(cursor)
+        with session_scope(self._session_factory) as session:
+            folder_models = list(
+                session.scalars(
+                    select(FolderModel).where(
+                        FolderModel.parent_id.is_(None) if folder_id is None else FolderModel.parent_id == folder_id,
+                        FolderModel.deleted_at.is_(None),
+                    )
+                )
+            )
+            asset_models = list(
+                session.scalars(
+                    select(AssetModel).where(
+                        AssetModel.folder_id.is_(None) if folder_id is None else AssetModel.folder_id == folder_id,
+                        AssetModel.deleted_at.is_(None),
+                    )
+                )
+            )
+
+        items = [
+            DriveItem(
+                type=DriveItemType.FOLDER,
+                id=folder.id,
+                name=folder.name,
+                updated_at=folder.updated_at,
+                folder=folder,
+            )
+            for folder in (folder_from_model(model) for model in folder_models)
+        ]
+        items.extend(
+            DriveItem(
+                type=DriveItemType.ASSET,
+                id=asset.id,
+                name=asset.filename,
+                updated_at=asset.updated_at,
+                asset=asset,
+            )
+            for asset in (asset_from_model(model) for model in asset_models)
+        )
+        items.sort(key=lambda item: (item.updated_at, item.type.value, item.id), reverse=True)
+        visible = items[offset : offset + limit]
+        next_cursor = str(offset + limit) if len(items) > offset + limit else None
+        return tuple(visible), next_cursor
+
+
+def _decode_cursor(cursor: str | None) -> int:
+    if cursor is None:
+        return 0
+    try:
+        value = int(cursor)
+    except ValueError:
+        return 0
+    return max(value, 0)
