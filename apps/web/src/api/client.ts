@@ -5,7 +5,10 @@ export type ApiClientOptions = {
 
 export type RequestOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | Record<string, unknown>;
+  query?: QueryParams;
 };
+
+export type QueryParams = Record<string, boolean | number | string | null | undefined>;
 
 export class ApiError extends Error {
   readonly details: unknown;
@@ -31,8 +34,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
   const fetcher = options.fetcher ?? fetch;
 
   async function request<TResponse>(path: string, requestOptions: RequestOptions = {}): Promise<TResponse> {
-    const { body, headers, ...init } = requestOptions;
+    const { body, headers, query, ...init } = requestOptions;
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const resolvedPath = appendQuery(normalizedPath, query);
     const requestHeaders = new Headers(headers);
     let requestBody: BodyInit | undefined;
 
@@ -45,7 +49,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
       requestBody = JSON.stringify(body);
     }
 
-    const response = await fetcher(`${baseUrl}${normalizedPath}`, {
+    const response = await fetcher(`${baseUrl}${resolvedPath}`, {
       ...init,
       body: requestBody,
       headers: requestHeaders,
@@ -71,6 +75,8 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
 export const apiClient = createApiClient();
 
+export type ApiClient = ReturnType<typeof createApiClient>;
+
 function isBodyInit(body: BodyInit | Record<string, unknown>): body is BodyInit {
   return (
     typeof body === "string" ||
@@ -91,4 +97,24 @@ async function readResponseBody(response: Response): Promise<unknown> {
   }
 
   return response.text();
+}
+
+function appendQuery(path: string, query?: QueryParams): string {
+  if (!query) {
+    return path;
+  }
+
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value === null || value === undefined || value === "") {
+      continue;
+    }
+
+    search.set(key, String(value));
+  }
+
+  const serialized = search.toString();
+
+  return serialized ? `${path}?${serialized}` : path;
 }

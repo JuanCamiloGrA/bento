@@ -21,6 +21,18 @@ describe("api client", () => {
     expect(fetcher).toHaveBeenCalledWith("/api/health", expect.objectContaining({ headers: expect.any(Headers) }));
   });
 
+  it("serializes query parameters and omits empty values", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 200 }));
+    const client = createApiClient({ baseUrl: "/api", fetcher });
+
+    await client.request("/jobs", { query: { cursor: null, limit: 25, status: "failed" } });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/jobs?limit=25&status=failed",
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
+  });
+
   it("raises typed errors for failed responses", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ code: "bad_request" }), {
