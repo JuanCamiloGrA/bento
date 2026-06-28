@@ -7,8 +7,11 @@ from pathlib import Path
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
 from bento.adapters.media import LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
+from bento.adapters.ocr import DisabledOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
+from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.application.media import MediaProcessingService
+from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_session_factory, sqlite_url
 from bento.infrastructure.settings import get_settings
@@ -46,18 +49,31 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
     assets = SQLiteAssetRepository(session_factory)
     blob_refs = SQLiteBlobRefCatalog(session_factory, clock)
     thumbnails = SQLiteThumbnailCatalog(session_factory, clock, blob_refs)
+    resolver = LocalBlobPathResolver(data_dir / "uploads")
     manifest = SQLiteManifestJournal(session_factory, clock, data_dir / "journal")
     media = MediaProcessingService(
         assets=assets,
         blob_refs=blob_refs,
         thumbnails=thumbnails,
         blob_store=create_blob_store(settings),
-        resolver=LocalBlobPathResolver(data_dir / "uploads"),
+        resolver=resolver,
         generator=LocalMediaGenerator(data_dir / "cache" / "media"),
         manifest=manifest,
         clock=clock,
     )
-    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id)
+    provider = RapidOCRAdapter() if os.getenv("BENTO_OCR_PROVIDER", "rapidocr") == "rapidocr" else DisabledOCRAdapter()
+    ocr = OCRIndexingService(
+        assets=assets,
+        blob_refs=blob_refs,
+        resolver=resolver,
+        provider=provider,
+        index=SQLiteFTSSearchIndex(session_factory, clock),
+        manifest=manifest,
+        clock=clock,
+        pdf_renderer=Pypdfium2PDFPageRenderer(data_dir / "cache" / "ocr" / "pdf-pages"),
+        pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
+    )
+    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr)
 
 
 def main() -> None:
