@@ -1,0 +1,62 @@
+# Orchestration Contract
+
+Purpose: this folder is the implementation contract for clean-context AI agents building the Telegram Private Cloud MVP Lite. It describes what to build, in what order, who owns each path, and how to verify work without implementing product code here.
+
+Assumption: the repository is currently empty, so agents must create a new Docker-first monorepo using the stack in the product specification.
+
+## Reading Order
+
+1. `README.md`
+2. `AGENTS.md`
+3. `architecture/system-overview.md`
+4. `architecture/repo-structure.md`
+5. Relevant `product/*.md` and `api/*.md`
+6. `testing/*.md`
+7. `execution/build-order.md`
+8. `execution/parallel-workstreams.md`
+9. Assigned `execution/agent-prompts/*.md`
+
+## Directory Map
+
+- `architecture/`: system architecture, layers, data, routes, UI, integration, security, performance.
+- `design-system/`: UI tokens, primitives, interaction and motion rules.
+- `product/`: behavior contracts for every user-facing and backend module.
+- `api/`: HTTP, event, error, and external service contracts.
+- `testing/`: required test strategy, layers, critical journeys, merge gates.
+- `execution/`: build order, parallel workstreams, and agent prompts.
+
+## Core Principles
+
+- Local-first, Docker-first, CPU-first.
+- Telegram is a blob store only; SQLite is the local source of truth.
+- The app must work with `STORAGE_BACKEND=local` and no Telegram config.
+- Embeddings and OCR are optional capabilities; FTS/name/metadata search must keep working when they are disabled.
+- Clean/Hexagonal Architecture is mandatory.
+- Domain code imports no FastAPI, SQLite, Telegram, OCR, embedding, media, or React libraries.
+- UI must never block on OCR, embeddings, or long media jobs.
+- Background work is progressive, retryable, observable, and safe to resume.
+- Root/shared files have exactly one owner per implementation stage.
+
+## Feature And Module List
+
+- Foundation and developer workflow.
+- Domain entities, ports, DTOs, and use cases.
+- SQLite schema, repositories, FTS5, sqlite-vec, settings, manifest events, jobs.
+- Local and Telegram blob stores.
+- Upload, ingestion, metadata, previews, thumbnails, PDF/video basics.
+- OCR indexing.
+- Embedding indexing.
+- Hybrid search and explanations.
+- Global Search UI and Documents filtered view.
+- Drive UI.
+- Photos UI.
+- Jobs/settings/status UI.
+- Seed data, doctor script, docs, release hardening.
+
+## Non-Goals
+
+- No product implementation code belongs in `/orchestration`.
+- No microservices in MVP Lite.
+- No GPU-required mode.
+- No public sharing, native mobile app, multi-PC sync, advanced multiuser auth, facial recognition, audio transcription, automatic captions, long-video deep indexing, PostgreSQL, or Qdrant.
+- No external cloud AI services.

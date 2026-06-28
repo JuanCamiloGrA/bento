@@ -1,0 +1,27 @@
+# Merge Gates
+
+## Per Agent
+
+- Own-path tests pass.
+- No forbidden layer imports.
+- No duplicate shared helpers, clients, stores, DTOs, or primitives.
+- Prompt Definition of Done satisfied.
+- Stage handoff notes mention docs consulted and assumptions.
+
+## Per Stage
+
+- All agents in stage merged.
+- Shared files owned by that stage are coherent.
+- Stage test target green.
+- API contracts and frontend client stay aligned where both exist.
+- Docker/dev commands remain usable after Stage 1.
+
+## Release
+
+- `make test` green.
+- `make doctor` passes in local mode.
+- Docker Compose local mode smoke passes.
+- Critical journeys covered.
+- README setup docs work from a clean clone.
+- No required secret committed.
+- No product behavior from the spec unassigned or untested.
