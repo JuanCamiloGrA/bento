@@ -51,6 +51,7 @@ class SQLiteManifestJournal:
                     created_at=event.created_at,
                 )
             )
+        await self.export_jsonl()
         return event
 
     async def export_jsonl(self) -> None:

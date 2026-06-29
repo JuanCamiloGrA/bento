@@ -12,9 +12,10 @@ export type AppShellProps = {
   navItems: SidebarItem[];
   onNavigate: (href: string) => void;
   onSearch: (query: string) => void;
+  status?: ReactNode;
 };
 
-export function AppShell({ activePath, children, navItems, onNavigate, onSearch }: AppShellProps) {
+export function AppShell({ activePath, children, navItems, onNavigate, onSearch, status }: AppShellProps) {
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <a
@@ -39,7 +40,7 @@ export function AppShell({ activePath, children, navItems, onNavigate, onSearch 
           >
             {children}
           </main>
-          <StatusIndicator />
+          {status ?? <StatusIndicator />}
         </section>
       </div>
     </div>

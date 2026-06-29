@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    command: python -m bento.interfaces.http.main
+    command: sh -c "cd /app/apps/api && alembic upgrade head && cd /app && python -m bento.interfaces.http.main"
     env_file:
       - .env.example
     environment:
@@ -17,6 +17,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
 
   worker:
     build:
@@ -39,10 +40,19 @@ services:
       dockerfile: docker/web.Dockerfile
     env_file:
       - .env.example
+    environment:
+      VITE_API_BASE_URL: "http://127.0.0.1:${API_PORT:-8000}/api"
     ports:
       - "127.0.0.1:${WEB_PORT:-5173}:5173"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   telegram-bot-api:
     image: aiogram/telegram-bot-api:latest
