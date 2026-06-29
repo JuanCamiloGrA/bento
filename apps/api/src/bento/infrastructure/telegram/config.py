@@ -79,10 +79,23 @@ def require_telegram_storage_config(
         raw_chat_id=_setting_or_env(settings, env, "telegram_raw_chat_id", "TELEGRAM_RAW_CHAT_ID") or "",
         thumbs_chat_id=_setting_or_env(settings, env, "telegram_thumbs_chat_id", "TELEGRAM_THUMBS_CHAT_ID") or "",
         journal_chat_id=_setting_or_env(settings, env, "telegram_journal_chat_id", "TELEGRAM_JOURNAL_CHAT_ID") or "",
-        request_timeout_seconds=float(env.get("TELEGRAM_REQUEST_TIMEOUT_SECONDS", "30")),
-        min_interval_seconds=float(env.get("TELEGRAM_MIN_INTERVAL_SECONDS", "0.05")),
-        max_attempts=int(env.get("TELEGRAM_MAX_ATTEMPTS", "3")),
-        retry_base_delay_seconds=float(env.get("TELEGRAM_RETRY_BASE_DELAY_SECONDS", "0.25")),
+        request_timeout_seconds=float(
+            _setting_or_env(settings, env, "telegram_request_timeout_seconds", "TELEGRAM_REQUEST_TIMEOUT_SECONDS")
+            or "30"
+        ),
+        min_interval_seconds=float(
+            _setting_or_env(settings, env, "telegram_min_interval_seconds", "TELEGRAM_MIN_INTERVAL_SECONDS") or "0.05"
+        ),
+        max_attempts=int(_setting_or_env(settings, env, "telegram_max_attempts", "TELEGRAM_MAX_ATTEMPTS") or "3"),
+        retry_base_delay_seconds=float(
+            _setting_or_env(
+                settings,
+                env,
+                "telegram_retry_base_delay_seconds",
+                "TELEGRAM_RETRY_BASE_DELAY_SECONDS",
+            )
+            or "0.25"
+        ),
     )
 
 

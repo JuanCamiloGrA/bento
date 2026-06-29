@@ -13,6 +13,7 @@ export function DriveRoute({ pathname = window.location.pathname }: DriveRoutePr
       onNavigate={(folderId) => {
         const path = folderId ? `/drive/folders/${encodeURIComponent(folderId)}` : "/drive";
         window.history.pushState({}, "", path);
+        window.dispatchEvent(new Event("popstate"));
       }}
     />
   );

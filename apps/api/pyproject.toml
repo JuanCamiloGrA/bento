@@ -4,8 +4,11 @@ version = "0.1.0"
 description = "Bento local-first API and worker package."
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.14,<2",
   "fastapi>=0.115,<0.116",
   "pydantic-settings>=2.7,<3",
+  "python-multipart>=0.0.20,<0.1",
+  "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.34,<0.35",
 ]
 
@@ -13,6 +16,16 @@ dependencies = [
 dev = [
   "httpx>=0.28,<0.29",
   "pytest>=8.3,<9",
+]
+media = [
+  "pillow>=11,<12",
+  "pypdfium2>=4.30,<5",
+]
+ocr = [
+  "rapidocr>=3,<4",
+]
+telegram = [
+  "aiogram>=3,<4",
 ]
 
 [build-system]
