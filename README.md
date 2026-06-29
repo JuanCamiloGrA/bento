@@ -1,3 +1,5 @@
+![Bento minimalist banner](docs/assets/readme-banner.png)
+
 # Bento
 
 Bento is a local-first private cloud MVP Lite. It stores metadata, jobs, search indexes, manifests, thumbnails, and settings in local SQLite and uses local filesystem storage by default. Telegram storage is optional and only used when `STORAGE_BACKEND=telegram` is configured.
