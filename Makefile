@@ -1,4 +1,4 @@
-.PHONY: dev up down logs doctor seed test setup backend-install frontend-install backend-test frontend-test smoke
+.PHONY: dev up down logs doctor seed test setup backend-install frontend-install backend-test frontend-test smoke pre-commit-install pre-commit pre-push
 
 dev: up
 
@@ -36,3 +36,12 @@ frontend-test: frontend-install
 
 smoke: backend-install
 	cd apps/api && uv run pytest tests/smoke
+
+pre-commit-install: backend-install
+	uv run --project apps/api pre-commit install --install-hooks
+
+pre-commit: backend-install
+	uv run --project apps/api pre-commit run --all-files
+
+pre-push: backend-install frontend-install
+	uv run --project apps/api pre-commit run --all-files --hook-stage pre-push

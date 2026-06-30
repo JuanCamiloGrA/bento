@@ -40,6 +40,8 @@ make setup          # install local deps, create data dirs, run Alembic migratio
 make doctor         # validate local mode, DB, writable volumes, compose config, tools
 make seed           # add deterministic demo Drive and Photos assets
 make test           # backend pytest and frontend Vitest
+make pre-commit     # run commit-time hooks against all files
+make pre-push       # run push-time project checks against all files
 make smoke          # backend release smoke journey
 make up             # build and start Docker Compose local mode
 make down
@@ -56,6 +58,12 @@ Frontend-only:
 
 ```sh
 npm --prefix apps/web test
+```
+
+Install Git hooks locally:
+
+```sh
+make pre-commit-install
 ```
 
 Validate Compose without starting services:
