@@ -25,12 +25,13 @@ make up
 
 Open the app at `http://127.0.0.1:5173`. The API is available at `http://127.0.0.1:8000/api`.
 
-If your shell exposes Python as `python` instead of the Windows `py` launcher, pass `PYTHON=python`:
+Backend dependency management uses `uv >=0.11,<0.12`; install or update it before running `make setup`.
 
 ```sh
-make setup PYTHON=python
-make test PYTHON=python
+uv self update
 ```
+
+If `uv` is not installed yet, use the official standalone installer or your package manager.
 
 ## Commands
 
@@ -48,7 +49,7 @@ make logs
 Backend-only:
 
 ```sh
-cd apps/api && py -m pytest
+cd apps/api && uv run pytest
 ```
 
 Frontend-only:
@@ -123,6 +124,7 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 ## Version Assumptions
 
 - Python 3.12+.
+- uv `>=0.11,<0.12` for backend dependency locking and local commands.
 - FastAPI `0.115.x`, SQLAlchemy `2.x`, Alembic `1.x`, Uvicorn `0.34.x`, pytest `8.x`.
 - Node 22, Vite `6.x`, React `19.x`, TypeScript `5.7.x`, Tailwind CSS `4.x`, Vitest `3.x`.
 - Docker Compose V2 with healthcheck-aware `depends_on`.
