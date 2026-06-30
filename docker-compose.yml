@@ -8,10 +8,28 @@ services:
       - .env.example
     environment:
       DATA_DIR: /app/data
+      HOST: 0.0.0.0
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
       - ./data:/app/data
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/api/src
+          target: /app/apps/api/src
+        - action: sync+restart
+          path: ./apps/api/migrations
+          target: /app/apps/api/migrations
+        - action: sync+restart
+          path: ./apps/api/alembic.ini
+          target: /app/apps/api/alembic.ini
+        - action: rebuild
+          path: ./apps/api/pyproject.toml
+        - action: rebuild
+          path: ./apps/api/uv.lock
+        - action: rebuild
+          path: ./docker/api.Dockerfile
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
       interval: 30s
@@ -33,6 +51,23 @@ services:
         condition: service_healthy
     volumes:
       - ./data:/app/data
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/api/src
+          target: /app/apps/api/src
+        - action: sync+restart
+          path: ./apps/api/migrations
+          target: /app/apps/api/migrations
+        - action: sync+restart
+          path: ./apps/api/alembic.ini
+          target: /app/apps/api/alembic.ini
+        - action: rebuild
+          path: ./apps/api/pyproject.toml
+        - action: rebuild
+          path: ./apps/api/uv.lock
+        - action: rebuild
+          path: ./docker/api.Dockerfile
 
   web:
     build:
@@ -47,6 +82,20 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web/src
+          target: /app/apps/web/src
+        - action: sync+restart
+          path: ./apps/web/vite.config.ts
+          target: /app/apps/web/vite.config.ts
+        - action: rebuild
+          path: ./apps/web/package.json
+        - action: rebuild
+          path: ./apps/web/package-lock.json
+        - action: rebuild
+          path: ./docker/web.Dockerfile
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5173/"]
       interval: 30s

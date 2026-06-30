@@ -1,9 +1,12 @@
-.PHONY: dev up down logs doctor seed test setup backend-install frontend-install backend-test frontend-test smoke pre-commit-install pre-commit pre-push
+.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install backend-test frontend-test smoke pre-commit-install pre-commit pre-push
 
 dev: up
 
 up: setup
 	docker compose up --build
+
+watch: setup
+	docker compose watch
 
 down:
 	docker compose down

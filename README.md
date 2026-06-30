@@ -44,9 +44,12 @@ make pre-commit     # run commit-time hooks against all files
 make pre-push       # run push-time project checks against all files
 make smoke          # backend release smoke journey
 make up             # build and start Docker Compose local mode
+make watch          # start Docker Compose in watch mode for development
 make down
 make logs
 ```
+
+`make watch` syncs source changes into running containers, restarts API/worker on backend changes, and rebuilds services when dependency or Docker build files change.
 
 Backend-only:
 
@@ -135,6 +138,6 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 - uv `>=0.11,<0.12` for backend dependency locking and local commands.
 - FastAPI `0.115.x`, SQLAlchemy `2.x`, Alembic `1.x`, Uvicorn `0.34.x`, pytest `8.x`.
 - Node 22, Vite `6.x`, React `19.x`, TypeScript `5.7.x`, Tailwind CSS `4.x`, Vitest `3.x`.
-- Docker Compose V2 with healthcheck-aware `depends_on`.
+- Docker Compose V2 with healthcheck-aware `depends_on` and `develop.watch` support.
 
 Docs consulted during release hardening: project orchestration docs and current official Docker Compose documentation for healthchecks and `depends_on` conditions.
