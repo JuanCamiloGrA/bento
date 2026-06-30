@@ -18,7 +18,7 @@ COPY apps/api/alembic.ini ./apps/api/alembic.ini
 COPY apps/api/migrations ./apps/api/migrations
 COPY apps/api/src ./apps/api/src
 
-RUN cd /app/apps/api && uv sync --locked --no-dev
+RUN cd /app/apps/api && uv sync --locked --no-dev --extra media
 
 EXPOSE 8000
 

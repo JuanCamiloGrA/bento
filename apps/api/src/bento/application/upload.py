@@ -87,6 +87,7 @@ class UploadAssetUseCase:
             kind=BlobKind.ORIGINAL,
             metadata=metadata,
         )
+        initial_state = ProcessingState.THUMBNAIL_PENDING if _can_generate_media(kind) else ProcessingState.BLOB_STORED
         asset = Asset(
             id=asset_id,
             kind=kind,
@@ -98,7 +99,9 @@ class UploadAssetUseCase:
             favorite=False,
             created_at=now,
             updated_at=now,
-        ).transition_to(ProcessingState.THUMBNAIL_PENDING, now)
+        )
+        if initial_state != asset.processing_state:
+            asset = asset.transition_to(initial_state, now)
         await self._assets.add(asset)
         await self._manifest.append(
             type=ManifestEventType.ASSET_CREATED,
@@ -112,12 +115,13 @@ class UploadAssetUseCase:
             entity_id=blob_ref.id,
             payload={"asset_id": asset.id, "kind": blob_ref.kind.value},
         )
-        await self._jobs.enqueue(
-            type=JobType.THUMBNAIL,
-            priority=int(JobPriority.THUMBNAIL),
-            payload={"asset_id": asset.id},
-            asset_id=asset.id,
-        )
+        if _can_generate_media(kind):
+            await self._jobs.enqueue(
+                type=JobType.THUMBNAIL,
+                priority=int(JobPriority.THUMBNAIL),
+                payload={"asset_id": asset.id},
+                asset_id=asset.id,
+            )
         if command.ocr_enabled and _can_ocr(kind):
             await self._jobs.enqueue(
                 type=JobType.OCR,
@@ -137,3 +141,7 @@ class UploadAssetUseCase:
 
 def _can_ocr(kind: AssetKind) -> bool:
     return kind in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.DOCUMENT}
+
+
+def _can_generate_media(kind: AssetKind) -> bool:
+    return kind in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.VIDEO}

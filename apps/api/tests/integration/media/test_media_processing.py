@@ -88,6 +88,31 @@ def test_pdf_and_video_thumbnail_worker_handlers_use_media_service_with_fakes(tm
     asyncio.run(scenario())
 
 
+def test_unsupported_thumbnail_job_completes_without_media_generation(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        factory = migrated_session_factory(tmp_path)
+        clock = FixedClock()
+        service, assets, blob_refs = await _media_service(tmp_path, factory, clock)
+        asset = await _create_original_asset(
+            tmp_path,
+            assets,
+            blob_refs,
+            kind=AssetKind.DOCUMENT,
+            filename="note.txt",
+            content=b"plain text",
+        )
+        jobs = SQLiteJobQueue(factory, clock)
+        job = await jobs.enqueue(type=JobType.THUMBNAIL, priority=1, payload={}, asset_id=asset.id)
+        dispatcher = WorkerDispatcher(jobs=jobs, media=service, clock=clock, worker_id="worker-test")
+
+        assert await dispatcher.process_one() is True
+
+        assert (await jobs.get(job.id)).status == JobStatus.SUCCEEDED
+        assert (await assets.get(asset.id)).processing_state == ProcessingState.THUMBNAIL_PENDING
+
+    asyncio.run(scenario())
+
+
 async def _media_service(tmp_path: Path, factory, clock: FixedClock):
     assets = SQLiteAssetRepository(factory)
     blob_refs = SQLiteBlobRefCatalog(factory, clock)
@@ -123,6 +148,7 @@ async def _create_original_asset(
         AssetKind.IMAGE: "image/jpeg",
         AssetKind.PDF: "application/pdf",
         AssetKind.VIDEO: "video/mp4",
+        AssetKind.DOCUMENT: "text/plain",
     }[kind]
     asset = Asset(
         id=f"asset_{kind.value}_{sha256[:8]}",

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from bento.domain.assets import Asset, ProcessingState
+from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.errors import AssetNotFoundError
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
 from bento.domain.storage import BlobKind, BlobRef
@@ -72,6 +72,8 @@ class MediaProcessingService:
         original_ref = await self._blob_refs.latest_for_asset(asset.id, BlobKind.ORIGINAL)
         if original_ref is None:
             raise AssetNotFoundError(asset_id)
+        if asset.kind not in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.VIDEO}:
+            return ()
 
         generated_files = await self._generator.generate(asset, self._resolver.resolve(original_ref))
         stored_refs: list[BlobRef] = []
