@@ -14,12 +14,12 @@ export function Input({ className, hint, id, label, ...props }: InputProps) {
   const hintId = hint ? `${inputId}-hint` : undefined;
 
   return (
-    <label className="grid gap-1 text-sm text-app-text" htmlFor={inputId}>
-      <span className="font-medium">{label}</span>
+    <label className="grid gap-1.5 text-sm text-app-text" htmlFor={inputId}>
+      <span className="font-medium text-app-text/90">{label}</span>
       <input
         aria-describedby={hintId}
         className={cx(
-          "h-9 w-full rounded-app-control border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none transition-colors duration-150 placeholder:text-app-text-muted focus:border-app-accent focus:ring-2 focus:ring-app-accent/20 disabled:bg-app-surface-muted disabled:opacity-70",
+          "h-10 w-full rounded-app-control border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none transition-all duration-200 placeholder:text-app-text-muted/65 focus:border-app-accent focus:ring-4 focus:ring-app-accent/10 disabled:bg-app-surface-muted disabled:opacity-70 focus:shadow-2xs",
           className,
         )}
         id={inputId}

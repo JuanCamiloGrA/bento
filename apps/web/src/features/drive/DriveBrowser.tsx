@@ -172,12 +172,12 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-app-border/80 pb-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-app-text" id="drive-title">
+          <h1 className="text-2xl font-bold tracking-tight text-app-text" id="drive-title">
             {t("drive.title")}
           </h1>
-          <div className="mt-2">
+          <div className="mt-2.5">
             <Breadcrumb
               items={breadcrumbs.map((item) => ({
                 current: item.folder_id === folderId,
@@ -189,7 +189,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3.5">
           <SegmentedControl
             ariaLabel={t("drive.layout.label")}
             onChange={setLayout}
@@ -199,7 +199,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
             ]}
             value={layout}
           />
-          <Button onClick={() => fileInputRef.current?.click()} variant="primary">
+          <Button onClick={() => fileInputRef.current?.click()} variant="primary" className="cursor-pointer font-semibold shadow-sm">
             {uploading ? t("drive.upload.uploading") : t("drive.upload.pick")}
           </Button>
           <input
@@ -219,12 +219,12 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
 
       <div
         className={cx(
-          "rounded-app-card border border-dashed border-app-border bg-app-surface p-4 transition-colors",
-          dragActive ? "border-app-accent bg-app-accent-muted" : undefined,
+          "rounded-app-card border border-app-border bg-app-surface p-5 transition-all duration-300 shadow-2xs",
+          dragActive ? "border-app-accent bg-app-accent-muted/40 ring-4 ring-app-accent/10" : undefined,
         )}
         onDragLeave={() => setDragActive(false)}
       >
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3.5">
           <form
             className="min-w-56 flex-1"
             onSubmit={(event) => {
@@ -241,7 +241,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               value={query}
             />
           </form>
-          <Button onClick={() => setSubmittedQuery(query)}>{t("drive.search.submit")}</Button>
+          <Button onClick={() => setSubmittedQuery(query)} className="cursor-pointer font-semibold shadow-2xs">{t("drive.search.submit")}</Button>
           {showingSearch ? (
             <Button
               onClick={() => {
@@ -249,6 +249,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                 setSubmittedQuery("");
               }}
               variant="ghost"
+              className="cursor-pointer font-semibold"
             >
               {t("drive.search.clear")}
             </Button>
@@ -259,11 +260,12 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               setPendingAction({ type: "create-folder" });
             }}
             variant="secondary"
+            className="cursor-pointer font-semibold shadow-2xs"
           >
             {t("drive.folder.new")}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-app-text-muted">{t("drive.upload.dropHint")}</p>
+        <p className="mt-3 text-sm text-app-text-muted/95 leading-relaxed">{t("drive.upload.dropHint")}</p>
       </div>
 
       {actionError ? <ErrorState body={actionError} title={t("drive.error.title")} /> : null}
@@ -282,7 +284,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
 
       {!itemsState.loading && !itemsState.error && visibleEntries.length === 0 ? (
         <EmptyState
-          action={<Button onClick={() => fileInputRef.current?.click()}>{t("drive.upload.pick")}</Button>}
+          action={<Button onClick={() => fileInputRef.current?.click()} variant="primary" className="shadow-sm font-semibold">{t("drive.upload.pick")}</Button>}
           body={showingSearch ? t("drive.empty.searchBody") : t("drive.empty.body")}
           title={showingSearch ? t("drive.empty.searchTitle") : t("drive.empty.title")}
         />
@@ -291,9 +293,9 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
       {visibleEntries.length > 0 && layout === "grid" ? (
         <VirtualGrid
           getKey={(entry) => `${entry.kind}-${entry.id}`}
-          height={520}
+          height={540}
           items={visibleEntries}
-          minColumnWidth={172}
+          minColumnWidth={192}
           renderItem={(entry) => (
             <DriveGridCard
               api={api}
@@ -303,15 +305,15 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               searchMode={showingSearch}
             />
           )}
-          rowHeight={238}
+          rowHeight={268}
         />
       ) : null}
 
       {visibleEntries.length > 0 && layout === "list" ? (
         <VirtualList
-          estimateSize={78}
+          estimateSize={84}
           getKey={(entry) => `${entry.kind}-${entry.id}`}
-          height={520}
+          height={540}
           items={visibleEntries}
           renderItem={(entry) => (
             <DriveListRow
@@ -353,9 +355,9 @@ type EntryCardProps = {
 
 function DriveGridCard({ api, entry, onNavigate, onOpenAction, searchMode }: EntryCardProps) {
   return (
-    <article className="grid h-full grid-rows-[auto_1fr_auto] gap-2 rounded-app-card border border-app-border bg-app-surface p-3">
+    <article className="grid h-full grid-rows-[auto_1fr_auto] gap-2.5 rounded-app-card border border-app-border bg-app-surface p-3.5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-300 group">
       <button
-        className="min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+        className="min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent overflow-hidden rounded-app-control cursor-pointer"
         onClick={() => {
           if (entry.kind === "folder") {
             onNavigate(entry.id);
@@ -363,12 +365,12 @@ function DriveGridCard({ api, entry, onNavigate, onOpenAction, searchMode }: Ent
         }}
         type="button"
       >
-        <Thumbnail alt={entry.name} src={entry.thumbnailUrl ?? undefined}>
+        <Thumbnail alt={entry.name} className="max-w-none rounded-none border-0 transition-transform duration-500 group-hover:scale-[1.03]" src={entry.thumbnailUrl ?? undefined}>
           {entry.kind === "folder" ? t("drive.item.folder") : t("drive.item.file")}
         </Thumbnail>
       </button>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold text-app-text">{entry.name}</h2>
+        <h2 className="truncate text-sm font-bold tracking-tight text-app-text group-hover:text-app-accent transition-colors">{entry.name}</h2>
         <EntryMeta entry={entry} searchMode={searchMode} />
       </div>
       <EntryActions api={api} entry={entry} onOpenAction={onOpenAction} />
@@ -378,9 +380,9 @@ function DriveGridCard({ api, entry, onNavigate, onOpenAction, searchMode }: Ent
 
 function DriveListRow({ api, entry, onNavigate, onOpenAction, searchMode }: EntryCardProps) {
   return (
-    <article className="grid h-full grid-cols-[44px_1fr_auto] items-center gap-3 border-b border-app-border px-3">
+    <article className="grid h-full grid-cols-[48px_1fr_auto] items-center gap-3.5 border-b border-app-border bg-app-surface px-4 py-2 hover:bg-slate-50 transition-all duration-150">
       <button
-        className="rounded-app-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+        className="rounded-app-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent cursor-pointer"
         onClick={() => {
           if (entry.kind === "folder") {
             onNavigate(entry.id);
@@ -388,12 +390,12 @@ function DriveListRow({ api, entry, onNavigate, onOpenAction, searchMode }: Entr
         }}
         type="button"
       >
-        <Thumbnail alt={entry.name} className="h-10 w-10" src={entry.thumbnailUrl ?? undefined}>
+        <Thumbnail alt={entry.name} className="h-10 w-10 border border-app-border bg-slate-100 shadow-3xs" src={entry.thumbnailUrl ?? undefined}>
           {entry.kind === "folder" ? t("drive.item.folderShort") : t("drive.item.fileShort")}
         </Thumbnail>
       </button>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold text-app-text">{entry.name}</h2>
+        <h2 className="truncate text-sm font-bold tracking-tight text-app-text">{entry.name}</h2>
         <EntryMeta entry={entry} searchMode={searchMode} />
       </div>
       <EntryActions api={api} entry={entry} onOpenAction={onOpenAction} />
@@ -408,15 +410,15 @@ function EntryMeta({ entry, searchMode }: { entry: DriveEntry; searchMode: boole
   ].filter(Boolean);
 
   return (
-    <div className="mt-1 grid gap-1 text-xs text-app-text-muted">
-      <p className="truncate">{parts.join(" · ")}</p>
+    <div className="mt-1 grid gap-0.5 text-xs text-app-text-muted">
+      <p className="truncate text-app-text-muted/80">{parts.join(" · ")}</p>
       {isIndexingState(entry.processingState) ? (
-        <p className="font-medium text-app-warning">{t("drive.state.indexing")}</p>
+        <p className="font-semibold text-app-warning">{t("drive.state.indexing")}</p>
       ) : null}
       {isPartialFailureState(entry.processingState) ? (
-        <p className="font-medium text-app-danger">{t("drive.state.partialFailure")}</p>
+        <p className="font-semibold text-app-danger">{t("drive.state.partialFailure")}</p>
       ) : null}
-      {searchMode && entry.reason ? <p className="truncate">{entry.reason}</p> : null}
+      {searchMode && entry.reason ? <p className="truncate text-app-text-muted/70">{entry.reason}</p> : null}
     </div>
   );
 }
@@ -429,18 +431,18 @@ function EntryActions({ api, entry, onOpenAction }: Omit<EntryCardProps, "onNavi
   ];
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-3 border-t border-app-border/40 pt-2.5 mt-1.5 group-hover:border-slate-350 transition-colors">
       {entry.kind === "asset" ? (
         <div className="flex min-w-0 items-center gap-2">
           <a
-            className="truncate rounded-app-control px-2 py-1 text-xs font-medium text-app-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+            className="truncate rounded-app-control border border-app-border bg-app-surface px-2 py-1 text-xs font-semibold text-app-accent hover:bg-slate-50 active:bg-slate-100 transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent shadow-3xs"
             href={api.previewUrl(entry.id)}
             target="_blank"
           >
             {t("drive.action.preview")}
           </a>
           <a
-            className="truncate rounded-app-control px-2 py-1 text-xs font-medium text-app-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+            className="truncate rounded-app-control border border-app-border bg-app-surface px-2 py-1 text-xs font-semibold text-app-accent hover:bg-slate-50 active:bg-slate-100 transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent shadow-3xs"
             download
             href={api.downloadUrl(entry.id)}
           >
@@ -448,7 +450,7 @@ function EntryActions({ api, entry, onOpenAction }: Omit<EntryCardProps, "onNavi
           </a>
         </div>
       ) : (
-        <span className="text-xs text-app-text-muted">{t("drive.item.folder")}</span>
+        <span className="text-xs font-medium text-app-text-muted/80">{t("drive.item.folder")}</span>
       )}
       <Menu items={items} label={`${t("drive.action.menu")} ${entry.name}`} trigger={<span>...</span>} />
     </div>

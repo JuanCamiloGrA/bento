@@ -15,13 +15,19 @@ export type BreadcrumbProps = {
 export function Breadcrumb({ items, label }: BreadcrumbProps) {
   return (
     <nav aria-label={label}>
-      <ol className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-app-text-muted">
+      <ol className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-app-text-muted">
         {items.map((item, index) => (
-          <li className="flex min-w-0 items-center gap-1" key={`${item.label}-${index}`}>
-            {index > 0 ? <span aria-hidden="true">/</span> : null}
+          <li className="flex min-w-0 items-center gap-1.5" key={`${item.label}-${index}`}>
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-app-text-muted/40 px-0.5 select-none">
+                <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </span>
+            ) : null}
             {item.href && !item.current ? (
               <a
-                className="truncate rounded-app-control px-1 text-app-text hover:bg-app-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+                className="truncate rounded-app-control px-1.5 py-0.5 text-app-text hover:bg-app-surface-muted hover:text-app-accent transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
                 href={item.href}
                 onClick={(event) => {
                   const href = item.href;
@@ -39,7 +45,7 @@ export function Breadcrumb({ items, label }: BreadcrumbProps) {
             ) : (
               <span
                 aria-current={item.current ? "page" : undefined}
-                className={cx("truncate px-1", item.current ? "font-medium text-app-text" : undefined)}
+                className={cx("truncate px-1.5 py-0.5", item.current ? "font-bold text-app-text" : undefined)}
               >
                 {item.label}
               </span>

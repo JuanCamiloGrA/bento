@@ -27,7 +27,7 @@ export function SearchFiltersBar({ filters, onChange, scope }: SearchFiltersBarP
   return (
     <section
       aria-label={t(scope === "documents" ? "documents.filters.label" : "search.filters.label")}
-      className="grid gap-3 rounded-app-card border border-app-border bg-app-surface p-3 md:grid-cols-[minmax(12rem,1.2fr)_repeat(4,minmax(8rem,1fr))]"
+      className="grid gap-4 rounded-app-card border border-app-border bg-app-surface p-4 shadow-2xs md:grid-cols-[minmax(12rem,1.2fr)_repeat(4,minmax(8rem,1fr))]"
     >
       <Input
         label={t("search.filter.query")}

@@ -21,10 +21,10 @@ type StatusItem = {
 };
 
 const toneClasses: Record<Tone, string> = {
-  danger: "border-app-danger bg-red-50 text-app-danger",
-  idle: "border-app-border bg-app-surface text-app-text",
-  success: "border-app-success bg-green-50 text-app-success",
-  warning: "border-app-warning bg-yellow-50 text-app-warning",
+  danger: "border-red-200 bg-red-50 text-red-750",
+  idle: "border-slate-200 bg-app-surface text-app-text",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
 };
 
 const providerLabels: Record<string, MessageKey> = {
@@ -44,22 +44,22 @@ export function SettingsPage({ error, isLoading = false, onRetry, settings }: Se
   const items = settings ? settingsItems(settings) : [];
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5">
-      <header>
-        <h1 className="text-2xl font-semibold text-app-text">{t("settings.header.title")}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-app-text-muted">{t("settings.header.body")}</p>
+    <div className="mx-auto grid w-full max-w-6xl gap-5">
+      <header className="flex flex-col gap-1 border-b border-app-border/80 pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-app-text">{t("settings.header.title")}</h1>
+        <p className="text-sm text-app-text-muted">{t("settings.header.body")}</p>
       </header>
 
       {error ? <ErrorState body={t("settings.settingsError.body")} onRetry={onRetry} /> : null}
       {isLoading ? <LoadingState /> : null}
 
       {!isLoading && settings ? (
-        <dl className="grid gap-3 md:grid-cols-2">
+        <dl className="grid gap-4 md:grid-cols-2">
           {items.map((item) => (
-            <div className={cx("rounded-app-card border p-4", toneClasses[item.tone])} key={item.label}>
-              <dt className="text-xs font-medium uppercase text-app-text-muted">{item.label}</dt>
-              <dd className="mt-2 text-lg font-semibold">{item.value}</dd>
-              {item.detail ? <p className="mt-1 text-sm text-app-text-muted">{item.detail}</p> : null}
+            <div className={cx("rounded-app-card border p-5 shadow-2xs hover:shadow-xs transition-all duration-300", toneClasses[item.tone])} key={item.label}>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-app-text-muted/75">{item.label}</dt>
+              <dd className="mt-2 text-lg font-black tracking-tight">{item.value}</dd>
+              {item.detail ? <p className="mt-1.5 text-xs text-app-text-muted/80 font-medium">{item.detail}</p> : null}
             </div>
           ))}
         </dl>

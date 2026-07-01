@@ -29,9 +29,9 @@ export function SearchView({ client, scope = "global" }: SearchViewProps) {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-4">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold text-app-text">{title}</h1>
+    <div className="grid w-full gap-5">
+      <header className="flex flex-col gap-1 border-b border-app-border/80 pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-app-text">{title}</h1>
         <p className="text-sm text-app-text-muted">{body}</p>
       </header>
 

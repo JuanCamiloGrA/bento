@@ -18,11 +18,11 @@ export function Select({ className, id, label, options, ...props }: SelectProps)
   const selectId = id ?? generatedId;
 
   return (
-    <label className="grid gap-1 text-sm text-app-text" htmlFor={selectId}>
-      <span className="font-medium">{label}</span>
+    <label className="grid gap-1.5 text-sm text-app-text" htmlFor={selectId}>
+      <span className="font-medium text-app-text/90">{label}</span>
       <select
         className={cx(
-          "h-9 w-full rounded-app-control border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none transition-colors duration-150 focus:border-app-accent focus:ring-2 focus:ring-app-accent/20 disabled:bg-app-surface-muted disabled:opacity-70",
+          "h-10 w-full rounded-app-control border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none transition-all duration-200 focus:border-app-accent focus:ring-4 focus:ring-app-accent/10 disabled:bg-app-surface-muted disabled:opacity-70 focus:shadow-2xs cursor-pointer",
           className,
         )}
         id={selectId}

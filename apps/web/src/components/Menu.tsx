@@ -64,7 +64,7 @@ export function Menu({ items, label, trigger }: MenuProps) {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={label}
-        className="inline-flex h-8 items-center rounded-app-control border border-app-border bg-app-surface px-2 text-sm text-app-text transition-colors duration-150 hover:bg-app-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+        className="inline-flex h-9 items-center justify-center rounded-app-control border border-app-border bg-app-surface px-2.5 text-sm text-app-text font-medium transition-all duration-200 hover:bg-app-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent cursor-pointer shadow-2xs"
         onClick={() => setOpen((current) => !current)}
         ref={triggerRef}
         type="button"
@@ -74,14 +74,14 @@ export function Menu({ items, label, trigger }: MenuProps) {
       {open ? (
         <div
           aria-label={label}
-          className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-44 rounded-app-card border border-app-border bg-app-surface p-1 shadow-app-dialog"
+          className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-44 rounded-app-card border border-app-border bg-app-surface p-1.5 shadow-lg shadow-slate-200/50"
           ref={menuRef}
           role="menu"
         >
           {items.map((item) => (
             <button
               className={cx(
-                "flex h-8 w-full items-center rounded-app-control px-2 text-left text-sm text-app-text transition-colors duration-150 hover:bg-app-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent disabled:text-app-text-muted",
+                "flex h-9 w-full items-center rounded-app-control px-2.5 text-left text-sm text-app-text transition-all duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent disabled:text-app-text-muted disabled:hover:bg-transparent cursor-pointer",
               )}
               disabled={item.disabled}
               key={item.id}

@@ -124,10 +124,10 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
   const emptyBody = favoritesOnly ? t("favorites.emptyBody") : t("photos.emptyBody");
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <div className="grid w-full gap-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-app-border/80 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold text-app-text">
+          <h1 className="text-2xl font-bold tracking-tight text-app-text">
             {favoritesOnly ? t("favorites.title") : t("photos.title")}
           </h1>
           <p className="mt-1 text-sm text-app-text-muted">
@@ -206,7 +206,7 @@ function SearchResults({
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <button
-            className="grid min-h-24 grid-cols-[5rem_1fr] gap-3 rounded-app-card border border-app-border bg-app-surface p-2 text-left transition-colors hover:bg-app-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+            className="grid min-h-28 grid-cols-[5rem_1fr] gap-4 rounded-app-card border border-app-border bg-app-surface p-3 text-left shadow-2xs transition-all duration-200 hover:shadow-sm hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
             key={item.id}
             onClick={() => onOpen(item)}
             type="button"

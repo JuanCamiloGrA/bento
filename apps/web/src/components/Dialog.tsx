@@ -60,25 +60,25 @@ export function Dialog({ actions, children, onOpenChange, open, title }: DialogP
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/30 p-4" role="presentation">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/35 backdrop-blur-xs p-4 transition-all duration-200" role="presentation">
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="max-h-[min(80vh,42rem)] w-full max-w-lg overflow-auto rounded-app-card border border-app-border bg-app-surface p-4 text-app-text shadow-app-dialog"
+        className="max-h-[min(80vh,42rem)] w-full max-w-lg overflow-auto rounded-app-card border border-app-border bg-app-surface p-6 text-app-text shadow-app-dialog transition-all duration-200"
         ref={panelRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold" id={titleId}>
+        <div className="flex items-center justify-between gap-3 border-b border-app-border pb-4">
+          <h2 className="text-lg font-bold tracking-tight text-app-text" id={titleId}>
             {title}
           </h2>
-          <Button aria-label={t("common.close")} onClick={() => onOpenChange(false)} variant="ghost">
+          <Button aria-label={t("common.close")} onClick={() => onOpenChange(false)} variant="ghost" className="h-8 px-2.5 text-xs font-semibold rounded-app-control">
             {t("common.close")}
           </Button>
         </div>
-        <div className="mt-3 text-sm text-app-text-muted">{children}</div>
-        {actions ? <div className="mt-4 flex justify-end gap-2">{actions}</div> : null}
+        <div className="mt-4 text-sm text-app-text-muted">{children}</div>
+        {actions ? <div className="mt-6 flex justify-end gap-2.5 border-t border-app-border pt-4">{actions}</div> : null}
       </div>
     </div>
   );

@@ -90,25 +90,25 @@ export function AlbumDetailPage({ albumId, api = albumsApi }: AlbumDetailPagePro
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4">
-      <header className="grid gap-3 sm:grid-cols-[10rem_1fr] sm:items-end">
+    <div className="grid w-full gap-5">
+      <header className="grid gap-4 sm:grid-cols-[8rem_1fr] sm:items-center border-b border-app-border/80 pb-5">
         <Thumbnail
           alt={album.title}
-          className="max-w-none"
+          className="max-w-none rounded-xl border border-app-border/80 shadow-sm"
           src={album.cover_asset ? assetThumbnailUrl(album.cover_asset) : undefined}
         >
-          {t("albums.emptyCover")}
+          <span className="text-app-text-muted/60 font-semibold tracking-wide text-xs">{t("albums.emptyCover")}</span>
         </Thumbnail>
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold text-app-text">{album.title}</h1>
-          <p className="mt-1 text-sm text-app-text-muted">
+          <h1 className="truncate text-2xl font-bold tracking-tight text-app-text">{album.title}</h1>
+          <p className="mt-1 text-xs text-app-text-muted font-medium bg-slate-100 px-2 py-0.5 rounded-full inline-block select-none">
             {album.asset_ids.length} {album.asset_ids.length === 1 ? t("photos.item") : t("photos.items")}
           </p>
         </div>
       </header>
 
       <form
-        className="grid gap-2 rounded-app-card border border-app-border bg-app-surface p-3 sm:grid-cols-[1fr_auto] sm:items-end"
+        className="grid gap-3 rounded-app-card border border-app-border bg-app-surface p-4 shadow-2xs sm:grid-cols-[1fr_auto] sm:items-end transition-all duration-200"
         onSubmit={(event) => {
           event.preventDefault();
           void addItem();
@@ -131,11 +131,20 @@ export function AlbumDetailPage({ albumId, api = albumsApi }: AlbumDetailPagePro
         <section aria-label={t("albums.itemsLabel")} className="grid gap-2">
           {album.asset_ids.map((itemAssetId) => (
             <div
-              className="flex min-h-12 items-center justify-between gap-3 rounded-app-card border border-app-border bg-app-surface px-3 py-2"
+              className="flex min-h-14 items-center justify-between gap-4 rounded-app-card border border-app-border bg-app-surface px-4 py-2 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-2xs"
               key={itemAssetId}
             >
-              <span className="min-w-0 truncate text-sm text-app-text">{itemAssetId}</span>
-              <Button disabled={mutating} onClick={() => void removeItem(itemAssetId)} variant="danger">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-app-text-muted/40 shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                </span>
+                <span className="min-w-0 truncate text-sm font-semibold text-app-text">{itemAssetId}</span>
+              </div>
+              <Button disabled={mutating} onClick={() => void removeItem(itemAssetId)} variant="danger" className="h-8.5 px-3 text-xs font-semibold">
                 {t("albums.removeItem")}
               </Button>
             </div>

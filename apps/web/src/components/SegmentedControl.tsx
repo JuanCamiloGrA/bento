@@ -21,7 +21,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex h-9 rounded-app-control border border-app-border bg-app-surface-muted p-0.5"
+      className="inline-flex h-10 rounded-app-control border border-app-border bg-app-surface-muted p-1"
       role="radiogroup"
     >
       {options.map((option) => {
@@ -31,8 +31,8 @@ export function SegmentedControl<T extends string>({
           <button
             aria-checked={selected}
             className={cx(
-              "min-w-16 rounded-[5px] px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent",
-              selected ? "bg-app-surface text-app-text shadow-sm" : "text-app-text-muted hover:text-app-text",
+              "min-w-16 rounded-[6px] px-3.5 text-sm font-medium transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent cursor-pointer",
+              selected ? "bg-app-surface text-app-text shadow-sm shadow-slate-200/80 font-semibold" : "text-app-text-muted hover:text-app-text",
             )}
             key={option.value}
             onClick={() => onChange(option.value)}

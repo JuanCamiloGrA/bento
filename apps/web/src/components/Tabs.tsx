@@ -20,7 +20,7 @@ export function Tabs<T extends string>({ ariaLabel, onChange, tabs, value }: Tab
 
   return (
     <div className="grid gap-3">
-      <div aria-label={ariaLabel} className="flex gap-1 border-b border-app-border" role="tablist">
+      <div aria-label={ariaLabel} className="flex gap-2 border-b border-app-border" role="tablist">
         {tabs.map((tab) => {
           const selected = tab.value === selectedTab.value;
 
@@ -28,10 +28,10 @@ export function Tabs<T extends string>({ ariaLabel, onChange, tabs, value }: Tab
             <button
               aria-selected={selected}
               className={cx(
-                "h-9 rounded-t-app-control border-b-2 px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent",
+                "h-10 rounded-t-app-control border-b-2 px-4 text-sm font-medium transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent cursor-pointer",
                 selected
-                  ? "border-app-accent text-app-text"
-                  : "border-transparent text-app-text-muted hover:text-app-text",
+                  ? "border-app-accent text-app-accent font-semibold"
+                  : "border-transparent text-app-text-muted hover:text-app-text hover:border-app-border/40",
               )}
               key={tab.value}
               onClick={() => onChange(tab.value)}

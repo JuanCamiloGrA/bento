@@ -9,7 +9,7 @@ export type RoutePlaceholderProps = {
 
 export function RoutePlaceholder({ bodyKey, titleKey }: RoutePlaceholderProps) {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4">
+    <div className="mx-auto grid w-full max-w-6xl gap-4">
       <EmptyState body={t(bodyKey)} title={t(titleKey)} />
     </div>
   );

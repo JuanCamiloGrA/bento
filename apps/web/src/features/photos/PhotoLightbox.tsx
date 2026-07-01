@@ -69,18 +69,18 @@ export function PhotoLightbox({ asset, onClose, onNext, onPrevious, onToggleFavo
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid bg-black/85 p-3 text-white" role="presentation">
+    <div className="fixed inset-0 z-40 grid bg-slate-950/80 backdrop-blur-md p-4 text-white transition-all duration-300" role="presentation">
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="grid h-full min-h-0 grid-rows-[auto_1fr] rounded-app-card border border-white/20 bg-black/30 shadow-app-dialog focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+        className="grid h-full min-h-0 grid-rows-[auto_1fr] rounded-2xl border border-white/10 bg-slate-900/90 shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent overflow-hidden"
         ref={panelRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/20 p-3">
+        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/5 bg-slate-950/20 px-5 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold" id={titleId}>
+            <h2 className="truncate text-base font-bold tracking-tight" id={titleId}>
               {asset.filename}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -117,16 +117,16 @@ export function PhotoLightbox({ asset, onClose, onNext, onPrevious, onToggleFavo
             />
           </div>
         </div>
-        <div className="grid min-h-0 place-items-center p-3">
+        <div className="grid min-h-0 place-items-center p-6 bg-slate-950/20">
           {asset.kind === "video" ? (
             <video
               aria-label={asset.filename}
-              className="max-h-full max-w-full rounded-app-control"
+              className="max-h-full max-w-full rounded-lg shadow-lg border border-white/5"
               controls
               src={assetDownloadUrl(asset)}
             />
           ) : (
-            <img alt={asset.filename} className="max-h-full max-w-full object-contain" src={assetPreviewUrl(asset)} />
+            <img alt={asset.filename} className="max-h-full max-w-full object-contain rounded-lg shadow-lg border border-white/5" src={assetPreviewUrl(asset)} />
           )}
         </div>
       </div>
