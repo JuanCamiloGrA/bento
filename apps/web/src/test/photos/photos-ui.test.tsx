@@ -19,15 +19,16 @@ describe("Photos UI", () => {
           { assets: [asset({ id: "asset_2", filename: "cena.jpg" })], date: "2026-05-01" },
         ]}
         onOpen={vi.fn()}
-        onToggleFavorite={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("heading", { level: 2, name: "junio de 2026" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /20 de junio de 2026/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "mayo de 2026" })).toBeInTheDocument();
-    expect(screen.getByText("playa.jpg")).toBeInTheDocument();
-    expect(screen.getByText("cena.jpg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "playa.jpg" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "cena.jpg" })).toBeInTheDocument();
+    expect(screen.queryByText("Miniatura lista")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Marcar favorito" })).not.toBeInTheDocument();
   });
 
   it("closes the lightbox with Escape and restores focus", async () => {
@@ -56,8 +57,8 @@ describe("Photos UI", () => {
 
     render(<PhotosPage api={api} />);
 
-    await screen.findByText("playa.jpg");
-    fireEvent.click(screen.getByRole("button", { name: "Marcar favorito" }));
+    fireEvent.click(await screen.findByRole("button", { name: "playa.jpg" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Marcar favorito" }));
 
     await waitFor(() => expect(api.toggleFavorite).toHaveBeenCalledWith("asset_1", true));
   });

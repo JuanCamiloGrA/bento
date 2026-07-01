@@ -161,7 +161,7 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
         <EmptyState body={emptyBody} title={emptyTitle} />
       ) : null}
       {loadState === "ready" && visibleGroups.length > 0 ? (
-        <PhotoTimeline groups={visibleGroups} onOpen={setSelectedAsset} onToggleFavorite={toggleFavorite} />
+        <PhotoTimeline groups={visibleGroups} onOpen={setSelectedAsset} />
       ) : null}
 
       <PhotoLightbox

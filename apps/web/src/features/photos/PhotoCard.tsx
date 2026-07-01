@@ -1,44 +1,31 @@
-import { IconButton } from "../../components/IconButton";
-import { Thumbnail } from "../../components/Thumbnail";
-import { assetThumbnailUrl } from "../../api/photos";
+import { assetPreviewUrl, assetThumbnailUrl } from "../../api/photos";
 import type { PhotoAsset } from "../../api/photos";
-import { t } from "../../i18n/dictionary";
-import { ProcessingStateBadge } from "./ProcessingStateBadge";
+import { cx } from "../../lib/cx";
 
 export type PhotoCardProps = {
   asset: PhotoAsset;
   onOpen: (asset: PhotoAsset) => void;
-  onToggleFavorite: (asset: PhotoAsset) => void;
 };
 
-export function PhotoCard({ asset, onOpen, onToggleFavorite }: PhotoCardProps) {
-  const favoriteLabel = asset.favorite ? t("photos.unfavorite") : t("photos.favorite");
+export function PhotoCard({ asset, onOpen }: PhotoCardProps) {
+  const src = asset.kind === "image" ? assetPreviewUrl(asset) : assetThumbnailUrl(asset);
 
   return (
-    <article className="grid h-full grid-rows-[1fr_auto] overflow-hidden rounded-app-card border border-app-border bg-app-surface shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-300 group">
-      <button
-        className="min-h-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent overflow-hidden"
-        onClick={() => onOpen(asset)}
-        type="button"
-      >
-        <Thumbnail alt={asset.filename} className="max-w-none rounded-none border-0 transition-transform duration-500 group-hover:scale-[1.03]" src={assetThumbnailUrl(asset)}>
-          {asset.kind === "video" ? t("photos.video") : t("photos.thumbnailPending")}
-        </Thumbnail>
-      </button>
-      <div className="grid gap-2.5 p-3">
-        <div className="flex min-w-0 items-start justify-between gap-2.5">
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold tracking-tight text-app-text">{asset.filename}</h3>
-            <p className="text-xs text-app-text-muted mt-0.5">{asset.kind === "video" ? t("photos.video") : t("photos.photo")}</p>
-          </div>
-          <IconButton
-            icon={asset.favorite ? "*" : "+"}
-            label={favoriteLabel}
-            onClick={() => onToggleFavorite(asset)}
-          />
-        </div>
-        <ProcessingStateBadge state={asset.processing_state} />
-      </div>
-    </article>
+    <button
+      aria-label={asset.filename}
+      className="group relative block overflow-hidden rounded-md bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+      onClick={() => onOpen(asset)}
+      type="button"
+    >
+      <img
+        alt={asset.filename}
+        className={cx(
+          "block h-40 w-auto max-w-none object-contain select-none transition duration-200 group-hover:brightness-95 sm:h-44 lg:h-48",
+          asset.kind === "video" ? "aspect-video bg-slate-900 object-cover" : "",
+        )}
+        loading="lazy"
+        src={src}
+      />
+    </button>
   );
 }
