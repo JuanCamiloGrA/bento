@@ -1,79 +1,81 @@
-# Guía de Configuración de Telegram en Bento
+# Telegram Configuration Guide in Bento
 
-Bento es una nube privada local-first que permite utilizar Telegram como un motor de almacenamiento de objetos (blob store) privado e ilimitado. Toda la metadata, índices de búsqueda, base de datos local SQLite y caché permanecen en tu máquina local, mientras que los archivos encriptados o crudos se guardan en canales privados de Telegram de manera segura.
+Bento is a local-first private cloud that allows you to use Telegram as a private and unlimited object storage (blob store) engine. All metadata, search indexes, local SQLite database, and cache remain on your local machine, while encrypted or raw files are securely saved in private Telegram channels.
 
-Esta guía te guiará paso a paso para configurar tu entorno y habilitar el backend de almacenamiento en Telegram.
-
----
-
-## Requisitos Previos
-
-Para configurar Telegram como backend de almacenamiento (`STORAGE_BACKEND=telegram`), necesitarás:
-1. Una cuenta de Telegram.
-2. Obtener las credenciales de la API de Telegram (`API_ID` y `API_HASH`).
-3. Crear un Bot de Telegram y obtener su Token (`BOT_TOKEN`).
-4. Crear tres canales privados de Telegram y obtener sus IDs (`CHAT_ID`).
+This guide will walk you through setting up your environment step-by-step and enabling the Telegram storage backend.
 
 ---
 
-## Paso 1: Obtener API ID y API Hash de Telegram
+## Prerequisites
 
-Para que el servidor local de la API de bots de Telegram funcione con tu cuenta de Telegram y permita subir archivos grandes (de hasta 2 GB), necesitas credenciales de aplicación:
-
-1. Ve a [https://my.telegram.org](https://my.telegram.org) e inicia sesión con tu número de teléfono.
-2. Accede a la sección **API development tools** (Herramientas de desarrollo de API).
-3. Si no tienes una aplicación creada, rellena el formulario para crear una (puedes ponerle cualquier nombre, por ejemplo, "Bento Storage").
-4. Copia los valores de **App api_id** y **App api_hash**. Los necesitarás para tu archivo `.env`.
-
----
-
-## Paso 2: Crear un Bot de Telegram
-
-El bot se encargará de realizar las operaciones de lectura y escritura (subida y descarga de archivos).
-
-1. Abre Telegram y busca al usuario oficial [@BotFather](https://t.me/BotFather).
-2. Envía el comando `/newbot` para iniciar el proceso de creación.
-3. Asigna un nombre amigable para el bot (ej. `Bento Storage Bot`).
-4. Asigna un nombre de usuario único que termine en `bot` (ej. `mi_bento_storage_bot`).
-5. [@BotFather](https://t.me/BotFather) te responderá con un mensaje que contiene el **Token de acceso HTTP API** (ej. `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Guarda este token de forma segura.
+To configure Telegram as a storage backend (`STORAGE_BACKEND=telegram`), you will need:
+1. A Telegram account.
+2. Obtain Telegram API credentials (`API_ID` and `API_HASH`).
+3. Create a Telegram Bot and obtain its Token (`BOT_TOKEN`).
+4. Create three private Telegram channels and obtain their IDs (`CHAT_ID`).
 
 ---
 
-## Paso 3: Crear los Canales Privados
+## Step 1: Obtain Telegram API ID and API Hash
 
-Bento organiza los archivos en tres categorías para mayor eficiencia. Debes crear **tres canales de Telegram diferentes** (configurados como **Privados**):
+To allow the local Telegram Bot API server to work with your Telegram account and upload large files (up to 2 GB), you need application credentials:
 
-1. **Canal para Archivos Crudos (Raw)**:
-   - Nombre sugerido: `Bento - Raw Files`
-   - Uso: Almacena los archivos originales subidos por el usuario de forma encriptada/segura.
-2. **Canal para Miniaturas (Thumbnails & Previews)**:
-   - Nombre sugerido: `Bento - Previews`
-   - Uso: Almacena miniaturas generadas y previsualizaciones optimizadas para acelerar la carga de la interfaz.
-3. **Canal para el Diario (Journal)**:
-   - Nombre sugerido: `Bento - Journal`
-   - Uso: Almacena logs de eventos del manifiesto físico para sincronización y auditoría de eventos.
-
-### Añadir el Bot como Administrador
-En cada uno de los tres canales recién creados:
-1. Ve a los ajustes del canal y entra en la sección **Administradores**.
-2. Añade a tu bot (buscándolo por el nombre de usuario que elegiste en el Paso 2).
-3. Otórgale permisos para **Publicar mensajes** (Post Messages).
+1. Go to [https://my.telegram.org](https://my.telegram.org) and log in with your phone number.
+2. Access the **API development tools** section.
+3. If you don't have an application created, fill out the form to create one (you can name it anything, for example, "Bento Storage").
+4. Copy the **App api_id** and **App api_hash** values. You will need them for your `.env` file.
 
 ---
 
-## Paso 4: Obtener los Chat IDs de los Canales
+## Step 2: Create a Telegram Bot
 
-Los IDs de los canales privados de Telegram son números enteros negativos que suelen comenzar con `-100` (por ejemplo, `-1001234567890`). Para conseguirlos:
+The bot will handle read and write operations (uploading and downloading files).
 
-### Método A: Usando un Bot auxiliar
-1. Reenvía cualquier mensaje publicado en tu canal privado al bot de Telegram [@ShowJsonBot](https://t.me/ShowJsonBot) o [@userinfobot](https://t.me/userinfobot).
-2. El bot te responderá con un JSON o texto que contiene la propiedad `forward_from_chat` o `chat.id`. Ese número (incluyendo el signo menos y `-100`) es tu ID.
+1. Open Telegram and search for the official [@BotFather](https://t.me/BotFather) user.
+2. Send the `/newbot` command to start the creation process.
+3. Assign a friendly name to the bot (e.g., `Bento Storage Bot`).
+4. Assign a unique username ending in `bot` (e.g., `my_bento_storage_bot`).
+5. [@BotFather](https://t.me/BotFather) will reply with a message containing the **HTTP API Access Token** (e.g., `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Keep this token secure.
 
-### Método B: Vía Web Browser
-1. Publica un mensaje de prueba en el canal donde agregaste al bot.
-2. Entra en tu navegador a la siguiente URL reemplazando `<TU_BOT_TOKEN>` con el token de tu bot:
-   `https://api.telegram.org/bot<TU_BOT_TOKEN>/getUpdates`
-3. Busca en la respuesta JSON el bloque que corresponde al canal y extrae el ID (ej. `"chat":{"id":-100xxxxxxxxxx,...}`).
+---
+
+## Step 3: Create Private Channels
+
+Bento organizes files into three categories for greater efficiency. You must create **three different Telegram channels** (configured as **Private**):
+
+1. **Channel for Raw Files (Raw)**:
+   - Suggested name: `Bento - Raw Files`
+   - Usage: Stores the original files uploaded by the user in an encrypted/secure format.
+2. **Channel for Thumbnails (Thumbnails & Previews)**:
+   - Suggested name: `Bento - Previews`
+   - Usage: Stores generated thumbnails and optimized previews to speed up interface loading.
+3. **Channel for the Journal (Journal)**:
+   - Suggested name: `Bento - Journal`
+   - Usage: Stores physical manifest event logs for event synchronization and auditing.
+
+### Add the Bot as an Administrator
+In each of the three newly created channels:
+1. Go to the channel settings and enter the **Administrators** section.
+2. Add your bot (by searching for the username you chose in Step 2).
+3. Grant it permissions to **Post Messages**.
+
+---
+
+## Step 4: Obtain the Channel Chat IDs
+
+Private Telegram channel IDs are negative integers that usually start with `-100` (for example, `-1001234567890`). To obtain them:
+
+### Method A: Using an Auxiliary Bot
+1. Forward any message posted in your private channel to the Telegram bot [@ShowJsonBot](https://t.me/ShowJsonBot) or [@userinfobot](https://t.me/userinfobot).
+2. The bot will respond with a JSON or text containing the `forward_from_chat` or `chat.id` property. That number (including the minus sign and `-100`) is your ID.
+
+### Method B: Via Web Browser
+1. Post a test message in the channel where you added the bot.
+2. Go to the following URL in your browser, replacing `<YOUR_BOT_TOKEN>` with your bot's token:
+   `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+3. Look for the block corresponding to the channel in the JSON response and extract the ID (e.g., `"chat":{"id":-100xxxxxxxxxx,...}`).
+
+---hat":{"id":-100xxxxxxxxxx,...}`).
 
 ---
 
