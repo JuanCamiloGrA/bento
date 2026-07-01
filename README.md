@@ -94,6 +94,8 @@ Telegram mode requires all Telegram fields:
 - `TELEGRAM_THUMBS_CHAT_ID`
 - `TELEGRAM_JOURNAL_CHAT_ID`
 
+See the complete [Telegram Configuration Guide](docs/telegram-setup.md) for step-by-step setup instructions.
+
 Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 
 ## Implemented MVP Surface
