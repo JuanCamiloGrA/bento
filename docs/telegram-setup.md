@@ -79,55 +79,55 @@ Private Telegram channel IDs are negative integers that usually start with `-100
 
 ---
 
-## Paso 5: Configurar el Archivo `.env`
+## Step 5: Configure the `.env` File
 
-Copia el archivo `.env.example` a `.env` (si no lo has hecho ya):
+Copy the `.env.example` file to `.env` (if you haven't already):
 ```bash
 cp .env.example .env
 ```
 
-Abre `.env` y realiza las siguientes modificaciones:
+Open `.env` and make the following changes:
 
-1. Cambia el backend de almacenamiento a `telegram`:
+1. Change the storage backend to `telegram`:
    ```env
    STORAGE_BACKEND=telegram
    ```
 
-2. Introduce las credenciales y IDs de los canales correspondientes:
+2. Enter the credentials and IDs for the corresponding channels:
    ```env
-   TELEGRAM_API_ID=tu_api_id_de_my_telegram_org
-   TELEGRAM_API_HASH=tu_api_hash_de_my_telegram_org
-   TELEGRAM_BOT_TOKEN=tu_token_de_bot_father
-   TELEGRAM_RAW_CHAT_ID=-100XXXXXXXXXX   # ID del canal Bento - Raw Files
-   TELEGRAM_THUMBS_CHAT_ID=-100XXXXXXXXXX # ID del canal Bento - Previews
-   TELEGRAM_JOURNAL_CHAT_ID=-100XXXXXXXXXX # ID del canal Bento - Journal
+   TELEGRAM_API_ID=your_api_id_from_my_telegram_org
+   TELEGRAM_API_HASH=your_api_hash_from_my_telegram_org
+   TELEGRAM_BOT_TOKEN=your_token_from_bot_father
+   TELEGRAM_RAW_CHAT_ID=-100XXXXXXXXXX   # ID of the Bento - Raw Files channel
+   TELEGRAM_THUMBS_CHAT_ID=-100XXXXXXXXXX # ID of the Bento - Previews channel
+   TELEGRAM_JOURNAL_CHAT_ID=-100XXXXXXXXXX # ID of the Bento - Journal channel
    ```
 
 ---
 
-## Paso 6: Levantar Bento en Modo Telegram
+## Step 6: Start Bento in Telegram Mode
 
-Dado que Bento soporta cargas y descargas de archivos pesados de hasta 2 GB, utiliza una instancia local de **Telegram Bot API server** mediante Docker Compose.
+Since Bento supports large file uploads and downloads up to 2 GB, it uses a local instance of the **Telegram Bot API server** via Docker Compose.
 
-Para arrancar Bento con soporte para Telegram, debes usar el perfil de Docker `telegram`. Ejecuta el siguiente comando en la raíz del proyecto:
+To start Bento with Telegram support, you must use the `telegram` Docker profile. Run the following command in the root of the project:
 
 ```bash
 docker compose --profile telegram up --build
 ```
 
-Esto levantará el contenedor de `telegram-bot-api` además de los servicios `web`, `api`, y `worker`.
+This will spin up the `telegram-bot-api` container in addition to the `web`, `api`, and `worker` services.
 
 ---
 
-## Paso 7: Validar la Configuración (Doctor)
+## Step 7: Validate the Configuration (Doctor)
 
-Una vez configuradas las variables en tu archivo `.env`, puedes verificar que todo está correcto utilizando el script de diagnóstico del proyecto:
+Once the variables are configured in your `.env` file, you can verify that everything is correct using the project diagnostic script:
 
 ```bash
 make doctor
 ```
 
-Si todo está configurado correctamente, verás una salida exitosa confirmando que el modo de almacenamiento de Telegram cuenta con las configuraciones requeridas:
+If everything is configured correctly, you will see a successful output confirming that the Telegram storage mode has the required settings:
 ```text
 [PASS] data directories: ...
 [PASS] database migration: ...
@@ -135,4 +135,4 @@ Si todo está configurado correctamente, verás una salida exitosa confirmando q
 Doctor passed: STORAGE_BACKEND=telegram.
 ```
 
-¡Listo! Bento ahora utilizará tus canales privados de Telegram para almacenar todos los archivos de manera segura y confidencial.
+Done! Bento will now use your private Telegram channels to store all files securely and confidentially.
