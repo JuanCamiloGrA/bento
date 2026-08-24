@@ -1,4 +1,4 @@
-.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install backend-test frontend-test smoke pre-commit-install pre-commit pre-push
+.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install desktop-install backend-test frontend-test desktop-test desktop-build desktop-package desktop-smoke smoke pre-commit-install pre-commit pre-push
 
 dev: up
 
@@ -23,7 +23,7 @@ doctor:
 seed: backend-install
 	uv run --project apps/api python scripts/seed/main.py
 
-test: backend-test frontend-test
+test: backend-test frontend-test desktop-test
 
 backend-install:
 	uv sync --project apps/api --extra dev
@@ -31,11 +31,26 @@ backend-install:
 frontend-install:
 	npm --prefix apps/web install
 
+desktop-install:
+	npm --prefix apps/desktop ci
+
 backend-test: backend-install
 	cd apps/api && uv run pytest
 
 frontend-test: frontend-install
 	npm --prefix apps/web test
+
+desktop-test: desktop-install
+	npm --prefix apps/desktop test
+
+desktop-build: desktop-install frontend-install
+	npm --prefix apps/desktop run build
+
+desktop-package: desktop-install frontend-install backend-install
+	npm --prefix apps/desktop run package
+
+desktop-smoke: desktop-package
+	npm --prefix apps/desktop run smoke:packaged
 
 smoke: backend-install
 	cd apps/api && uv run pytest tests/smoke
