@@ -22,12 +22,15 @@ import { getFileTypeKind } from "./fileType";
 import { FolderTree } from "./FolderTree";
 import { selectionFromDataTransfer, selectionFromFiles, uploadSelection } from "./folderUpload";
 import type { UploadProgress, UploadSummary } from "./folderUpload";
+import { deleteDriveEntries, downloadDriveEntries, downloadableDriveEntries, moveDriveEntries } from "./bulkOperations";
 import { useDriveItems, useDriveSearch } from "./useDriveQueries";
 
 type LayoutMode = "grid" | "list";
 
 type PendingAction =
   | { type: "create-folder" }
+  | { entries: DriveEntry[]; type: "bulk-delete" }
+  | { entries: DriveEntry[]; type: "bulk-move" }
   | { entry: DriveEntry; type: "delete" }
   | { entry: DriveEntry; type: "move" }
   | { entry: DriveEntry; type: "rename" }
@@ -52,6 +55,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogValue, setDialogValue] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
@@ -63,6 +67,13 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
   const searchEntries = useMemo(() => (searchState.data?.items ?? []).map(entryFromSearchItem), [searchState.data]);
   const showingSearch = submittedQuery.trim().length > 0;
   const visibleEntries = showingSearch ? searchEntries : entries;
+  const selectedEntries = useMemo(
+    () => visibleEntries.filter((entry) => selectedKeys.has(entryKey(entry))),
+    [selectedKeys, visibleEntries],
+  );
+  const downloadableEntries = useMemo(() => downloadableDriveEntries(selectedEntries), [selectedEntries]);
+  const allVisibleSelected = visibleEntries.length > 0 && selectedEntries.length === visibleEntries.length;
+  const someVisibleSelected = selectedEntries.length > 0 && !allVisibleSelected;
   const breadcrumbs = useMemo(
     () => normalizeBreadcrumbs(itemsState.data?.breadcrumbs, folderId),
     [folderId, itemsState.data?.breadcrumbs],
@@ -72,7 +83,29 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
     setFolderId(nextFolderId);
     setSubmittedQuery("");
     setQuery("");
+    setSelectedKeys(new Set());
     onNavigate?.(nextFolderId);
+  }
+
+  function toggleSelection(entry: DriveEntry) {
+    setSelectedKeys((current) => {
+      const next = new Set(current);
+      const key = entryKey(entry);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedKeys(allVisibleSelected ? new Set() : new Set(visibleEntries.map(entryKey)));
+  }
+
+  function clearSelection() {
+    setSelectedKeys(new Set());
   }
 
   async function reload() {
@@ -182,6 +215,16 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
         } else {
           await api.deleteAsset(pendingAction.entry.id);
         }
+      }
+
+      if (pendingAction.type === "bulk-move") {
+        await moveDriveEntries(api, pendingAction.entries, value || null);
+        clearSelection();
+      }
+
+      if (pendingAction.type === "bulk-delete") {
+        await deleteDriveEntries(api, pendingAction.entries);
+        clearSelection();
       }
 
       setPendingAction(null);
@@ -315,6 +358,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                 className="min-w-56 flex-1"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  clearSelection();
                   setSubmittedQuery(query);
                 }}
                 role="search"
@@ -327,7 +371,13 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                   value={query}
                 />
               </form>
-              <Button onClick={() => setSubmittedQuery(query)} className="cursor-pointer font-semibold shadow-2xs">
+              <Button
+                onClick={() => {
+                  clearSelection();
+                  setSubmittedQuery(query);
+                }}
+                className="cursor-pointer font-semibold shadow-2xs"
+              >
                 {t("drive.search.submit")}
               </Button>
               {showingSearch ? (
@@ -335,6 +385,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                   onClick={() => {
                     setQuery("");
                     setSubmittedQuery("");
+                    clearSelection();
                   }}
                   variant="ghost"
                   className="cursor-pointer font-semibold"
@@ -358,6 +409,20 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               <p>{t("drive.upload.dropHint")}</p>
             </div>
           </div>
+
+          {visibleEntries.length > 0 ? (
+            <SelectionToolbar
+              allVisibleSelected={allVisibleSelected}
+              downloadableCount={downloadableEntries.length}
+              onBulkDelete={() => openAction({ entries: selectedEntries, type: "bulk-delete" })}
+              onBulkDownload={() => downloadDriveEntries(api, selectedEntries, openInNewTab)}
+              onBulkMove={() => openAction({ entries: selectedEntries, type: "bulk-move" })}
+              onClear={clearSelection}
+              onToggleAll={toggleAllVisible}
+              selectedCount={selectedEntries.length}
+              someVisibleSelected={someVisibleSelected}
+            />
+          ) : null}
 
           {actionError ? <ErrorState body={actionError} title={t("drive.error.title")} /> : null}
           {itemsState.loading && !itemsState.data ? <LoadingState label={t("drive.loading")} /> : null}
@@ -399,7 +464,15 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               items={visibleEntries}
               minColumnWidth={176}
               renderItem={(entry) => (
-                <DriveGridCard api={api} entry={entry} onNavigate={navigate} onOpenAction={openAction} searchMode={showingSearch} />
+                <DriveGridCard
+                  api={api}
+                  entry={entry}
+                  onNavigate={navigate}
+                  onOpenAction={openAction}
+                  onToggleSelection={toggleSelection}
+                  searchMode={showingSearch}
+                  selected={selectedKeys.has(entryKey(entry))}
+                />
               )}
               rowHeight={218}
             />
@@ -412,7 +485,15 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
               height={560}
               items={visibleEntries}
               renderItem={(entry) => (
-                <DriveListRow api={api} entry={entry} onNavigate={navigate} onOpenAction={openAction} searchMode={showingSearch} />
+                <DriveListRow
+                  api={api}
+                  entry={entry}
+                  onNavigate={navigate}
+                  onOpenAction={openAction}
+                  onToggleSelection={toggleSelection}
+                  searchMode={showingSearch}
+                  selected={selectedKeys.has(entryKey(entry))}
+                />
               )}
             />
           ) : null}
@@ -550,18 +631,91 @@ function UploadCloudIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+function SelectionToolbar({
+  allVisibleSelected,
+  downloadableCount,
+  onBulkDelete,
+  onBulkDownload,
+  onBulkMove,
+  onClear,
+  onToggleAll,
+  selectedCount,
+  someVisibleSelected,
+}: {
+  allVisibleSelected: boolean;
+  downloadableCount: number;
+  onBulkDelete: () => void;
+  onBulkDownload: () => void;
+  onBulkMove: () => void;
+  onClear: () => void;
+  onToggleAll: () => void;
+  selectedCount: number;
+  someVisibleSelected: boolean;
+}) {
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  return (
+    <section
+      aria-label={t("drive.selection.label")}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-app-control border border-app-border/80 bg-app-surface/80 px-3 py-2.5"
+    >
+      <label className="inline-flex min-h-8 items-center gap-2 text-sm font-semibold text-app-text">
+        <input
+          aria-label={t("drive.selection.all")}
+          checked={allVisibleSelected}
+          className="h-4 w-4 cursor-pointer accent-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+          onChange={onToggleAll}
+          ref={selectAllRef}
+          type="checkbox"
+        />
+        <span>
+          {selectedCount > 0 ? `${selectedCount} ${t("drive.selection.count")}` : t("drive.selection.all")}
+        </span>
+      </label>
+
+      {selectedCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button aria-label={t("drive.action.bulkMove")} className="h-8 px-3 text-xs" onClick={onBulkMove}>
+            {t("drive.action.bulkMove")}
+          </Button>
+          {downloadableCount > 0 ? (
+            <Button aria-label={t("drive.action.bulkDownload")} className="h-8 px-3 text-xs" onClick={onBulkDownload}>
+              {t("drive.action.bulkDownload")}
+            </Button>
+          ) : null}
+          <Button aria-label={t("drive.action.bulkDelete")} className="h-8 px-3 text-xs" onClick={onBulkDelete} variant="danger">
+            {t("drive.action.bulkDelete")}
+          </Button>
+          <Button aria-label={t("drive.selection.clear")} className="h-8 px-3 text-xs" onClick={onClear} variant="ghost">
+            {t("drive.selection.clear")}
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 type EntryCardProps = {
   api: DriveApi;
   entry: DriveEntry;
   onNavigate: (folderId: string | null) => void;
   onOpenAction: (action: PendingAction) => void;
+  onToggleSelection: (entry: DriveEntry) => void;
   searchMode: boolean;
+  selected: boolean;
 };
 
-function DriveGridCard({ api, entry, onNavigate, onOpenAction }: EntryCardProps) {
+function DriveGridCard({ api, entry, onNavigate, onOpenAction, onToggleSelection, selected }: EntryCardProps) {
   return (
     <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
-      <article className="group relative flex h-full min-h-0 flex-col">
+      <article className={cx("group relative flex h-full min-h-0 flex-col", selected && "rounded-sm ring-2 ring-app-accent ring-offset-2 ring-offset-app-bg")}>
+        <EntrySelectionCheckbox entry={entry} onToggle={onToggleSelection} selected={selected} />
         <button
           aria-label={`${t("drive.action.open")} ${entry.name}`}
           className="flex min-h-0 min-w-0 flex-1 cursor-pointer flex-col text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
@@ -586,10 +740,11 @@ function DriveGridCard({ api, entry, onNavigate, onOpenAction }: EntryCardProps)
   );
 }
 
-function DriveListRow({ api, entry, onNavigate, onOpenAction, searchMode }: EntryCardProps) {
+function DriveListRow({ api, entry, onNavigate, onOpenAction, onToggleSelection, searchMode, selected }: EntryCardProps) {
   return (
     <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
-      <article className="group relative grid h-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-app-border bg-app-surface px-3 py-1.5 transition-colors duration-150 hover:bg-slate-50">
+      <article className={cx("group relative grid h-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-app-border bg-app-surface px-3 py-1.5 transition-colors duration-150 hover:bg-slate-50", selected && "bg-teal-50/70")}>
+        <EntrySelectionCheckbox entry={entry} onToggle={onToggleSelection} selected={selected} />
         <button
           aria-label={`${t("drive.action.open")} ${entry.name}`}
           className="grid h-9 w-9 cursor-pointer place-items-center rounded-app-control bg-slate-50/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
@@ -614,6 +769,34 @@ function DriveListRow({ api, entry, onNavigate, onOpenAction, searchMode }: Entr
   );
 }
 
+function EntrySelectionCheckbox({
+  entry,
+  onToggle,
+  selected,
+}: {
+  entry: DriveEntry;
+  onToggle: (entry: DriveEntry) => void;
+  selected: boolean;
+}) {
+  return (
+    <label
+      className={cx(
+        "absolute left-2 top-2 z-20 inline-flex cursor-pointer rounded bg-white/90 p-0.5 shadow-sm transition-opacity focus-within:opacity-100",
+        selected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+      )}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <input
+        aria-label={`${selected ? t("drive.selection.unselect") : t("drive.selection.select")} ${entry.name}`}
+        checked={selected}
+        className="h-4 w-4 cursor-pointer accent-teal-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+        onChange={() => onToggle(entry)}
+        type="checkbox"
+      />
+    </label>
+  );
+}
+
 function EntryMeta({ entry, searchMode }: { entry: DriveEntry; searchMode: boolean }) {
   const parts = [
     entry.kind === "folder" ? t("drive.item.folder") : entry.mimeType ?? t("drive.item.file"),
@@ -632,6 +815,10 @@ function EntryMeta({ entry, searchMode }: { entry: DriveEntry; searchMode: boole
       {searchMode && entry.reason ? <p className="truncate text-app-text-muted/70">{entry.reason}</p> : null}
     </div>
   );
+}
+
+function entryKey(entry: DriveEntry): string {
+  return `${entry.kind}:${entry.id}`;
 }
 
 function isInlinePreviewable(entry: DriveEntry): boolean {
@@ -721,11 +908,11 @@ function DriveContextMenu({
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent
         aria-label={`${t("drive.action.menu")} ${entry.name}`}
-        className="min-w-48 border-app-border bg-app-surface p-1 text-app-text shadow-lg"
+        className="min-w-48 border-slate-700 bg-slate-950 p-1 text-slate-50 shadow-2xl shadow-slate-950/30"
       >
         {items.map((item) => (
           <ContextMenuItem
-            className="h-9 cursor-pointer rounded-app-control px-2.5 text-sm text-app-text hover:bg-slate-50 focus:bg-slate-50 focus:text-app-text"
+            className="h-9 cursor-pointer rounded-app-control px-2.5 text-sm font-medium text-slate-100 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white"
             key={item.id}
             onSelect={item.onSelect}
           >
@@ -804,13 +991,21 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
     );
   }
 
+  const isBulkDelete = action.type === "bulk-delete";
+  const isDelete = isBulkDelete || action.type === "delete";
+  const isBulkMove = action.type === "bulk-move";
+  const isMove = isBulkMove || action.type === "move";
   const titleKey: Parameters<typeof t>[0] =
     action.type === "create-folder"
       ? "drive.dialog.createFolderTitle"
       : action.type === "rename"
         ? "drive.dialog.renameTitle"
-        : action.type === "move"
-          ? "drive.dialog.moveTitle"
+        : isBulkMove
+          ? "drive.dialog.bulkMoveTitle"
+          : isMove
+            ? "drive.dialog.moveTitle"
+            : isBulkDelete
+              ? "drive.dialog.bulkDeleteTitle"
           : "drive.dialog.deleteTitle";
 
   return (
@@ -820,8 +1015,8 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
           <Button onClick={() => onOpenChange(false)} variant="ghost">
             {t("drive.dialog.cancel")}
           </Button>
-          <Button form="drive-action-form" type="submit" variant={action.type === "delete" ? "danger" : "primary"}>
-            {action.type === "delete" ? t("drive.dialog.deleteConfirm") : t("drive.dialog.save")}
+          <Button form="drive-action-form" type="submit" variant={isDelete ? "danger" : "primary"}>
+            {isDelete ? t("drive.dialog.deleteConfirm") : t("drive.dialog.save")}
           </Button>
         </>
       }
@@ -838,7 +1033,7 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
             value={value}
           />
         ) : null}
-        {action.type === "move" ? (
+        {isMove ? (
           <Input
             aria-label={t("drive.dialog.folderIdLabel")}
             autoFocus
@@ -848,7 +1043,7 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
             value={value}
           />
         ) : null}
-        {action.type === "delete" ? <p>{t("drive.dialog.deleteBody")}</p> : null}
+        {isDelete ? <p>{t(isBulkDelete ? "drive.dialog.bulkDeleteBody" : "drive.dialog.deleteBody")}</p> : null}
         {error ? <p className="text-app-danger">{error}</p> : null}
       </form>
     </Dialog>

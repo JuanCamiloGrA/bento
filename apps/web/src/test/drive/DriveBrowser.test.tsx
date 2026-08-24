@@ -214,6 +214,60 @@ describe("DriveBrowser", () => {
     folderView.unmount();
   });
 
+  it("selects files and folders together and moves them in bulk", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar Documentos" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar factura.pdf" }));
+    expect(screen.getByText("2 seleccionados")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mover seleccionados" }));
+    fireEvent.change(await screen.findByLabelText("ID de carpeta destino"), { target: { value: "folder_archive" } });
+    submitDialog("Guardar");
+
+    await waitFor(() => {
+      expect(api.moveFolder).toHaveBeenCalledWith({ folderId: "folder_docs", parentId: "folder_archive" });
+      expect(api.moveAsset).toHaveBeenCalledWith({ assetId: "asset_invoice", folderId: "folder_archive" });
+    });
+    expect(screen.queryByText("2 seleccionados")).not.toBeInTheDocument();
+  });
+
+  it("deletes selected files and folders in bulk", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar Documentos" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar factura.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar seleccionados" }));
+    submitDialog("Eliminar");
+
+    await waitFor(() => {
+      expect(api.deleteFolder).toHaveBeenCalledWith("folder_docs");
+      expect(api.deleteAsset).toHaveBeenCalledWith("asset_invoice");
+    });
+  });
+
+  it("downloads selected assets without trying to download selected folders", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const api = createApi();
+
+    try {
+      render(<DriveBrowser api={api} />);
+      await screen.findByText("factura.pdf");
+
+      fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar Documentos" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar factura.pdf" }));
+      fireEvent.click(screen.getByRole("button", { name: "Descargar seleccionados" }));
+
+      expect(openSpy).toHaveBeenCalledWith("/api/assets/asset_invoice/download", "_blank", "noopener,noreferrer");
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
+
   it("exposes file actions in the contextual menu", async () => {
     const api = createApi();
     render(<DriveBrowser api={api} />);
