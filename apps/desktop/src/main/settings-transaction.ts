@@ -31,12 +31,16 @@ export class SettingsTransaction {
     let persistedOriginal = false;
     const actualSecretChanges = Object.fromEntries(Object.entries(request.secrets).filter(([, item]) => item.operation !== "unchanged"));
     let prepared: Awaited<ReturnType<SecureSecretStore["prepare"]>> | null = null;
+    let previousSecretValues: Record<string, string> | null = null;
     try {
       progress({ phase: "validating", status: "started" });
       if (changesDataDir) {
         validatedDataDir = await this.dataDirectories.validate(this.bootstrapState.dataDir, requestedDataDir!, request.dataMigration);
       }
-      if (Object.keys(actualSecretChanges).length) prepared = await this.secrets.prepare(request.secrets);
+      if (Object.keys(actualSecretChanges).length) {
+        previousSecretValues = await this.secrets.values();
+        prepared = await this.secrets.prepare(request.secrets);
+      }
       const references = prepared?.references ?? Object.fromEntries(Object.keys(request.secrets).map((key) => [key, {
         reference: previousReferences[key] ?? null,
         configured: Boolean(previousReferences[key]),
@@ -129,9 +133,11 @@ export class SettingsTransaction {
       progress({ phase: "rolling-back", status: "started", message: safeError(error) });
       try {
         if (prepared) await prepared.rollback();
+        const rollbackSecretValues = previousSecretValues ?? await this.secrets.values();
         if (changesDataDir) {
           await this.sidecars.stop();
           this.sidecars.setDataDir(this.bootstrapState.dataDir);
+          this.sidecars.setSecretEnvironment(rollbackSecretValues);
           await this.bootstrap.save(this.bootstrapState);
           await this.sidecars.start();
         }
@@ -155,7 +161,7 @@ export class SettingsTransaction {
           secret_references: rollbackReferences,
           run_probes: false,
         }, "PATCH"));
-        await this.sidecars.restart(rolledBack.restart_plan.services, await this.secrets.values());
+        await this.sidecars.restart(rolledBack.restart_plan.services, rollbackSecretValues);
         await this.sidecars.verify();
         progress({ phase: "rolling-back", status: "ok" });
         return { ok: false, revision: rolledBack.revision, rolledBack: true, errors: [{ key: "_", code: "desktop_apply_rolled_back", message: safeError(error) }] };

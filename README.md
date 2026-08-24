@@ -4,6 +4,20 @@
 
 Bento is a local-first private cloud MVP Lite. It stores metadata, jobs, search indexes, manifests, thumbnails, and settings in local SQLite and uses local filesystem storage by default. Telegram storage is optional and only used when `STORAGE_BACKEND=telegram` is configured.
 
+The packaged Electron app is the recommended path for desktop users: it includes the web UI plus native API/worker sidecars, requires no Docker, Python, Node, or manual `.env`, and keeps data on the device by default. Docker Compose remains supported for development and headless deployments.
+
+## Desktop installation
+
+Download the artifact for your architecture from a signed GitHub release:
+
+- Windows x64: Squirrel `Setup.exe`.
+- macOS Intel or Apple silicon: the matching notarized `.dmg`.
+- Ubuntu 22.04 x64 and compatible Debian-based systems: `.deb`; a portable `.zip` is also published.
+
+Verify the matching `SHA256SUMS-*` file before installing. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not general distribution.
+
+See [Desktop installation and first run](docs/desktop/install-first-run.md), [Settings, backup, and recovery](docs/desktop/settings-recovery.md), and [Release and signing](docs/desktop/releasing.md).
+
 ## Runtime Processes
 
 - `web`: Vite React TypeScript app on `127.0.0.1:5173`.
@@ -43,6 +57,8 @@ make test           # backend pytest and frontend Vitest
 make pre-commit     # run commit-time hooks against all files
 make pre-push       # run push-time project checks against all files
 make smoke          # backend release smoke journey
+make desktop-make   # native installer/archive makers for the current OS
+make desktop-release-artifacts # makers, packaged smoke, SBOM, checksums
 make up             # build and start Docker Compose local mode
 make watch          # start Docker Compose in watch mode for development
 make down
@@ -118,6 +134,7 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 - OCR and embeddings are disabled by default; real providers require local runtime setup and model files.
 - The worker is conservative by default (`WORKER_CONCURRENCY=1`).
 - Telegram mode requires a local Telegram Bot API server and private channels; automated tests use fakes, not real Telegram.
+- The desktop package does not currently bundle or supervise `telegram-bot-api`; Telegram storage therefore requires a separately operated loopback service. Local storage is fully supported without it.
 - Thumbnails/previews depend on worker/media tooling and may be pending until jobs run.
 - No public sharing, mobile app, multi-PC sync, cloud AI, PostgreSQL, or external vector database is included in MVP Lite.
 
@@ -145,6 +162,7 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 - FastAPI `0.115.x`, SQLAlchemy `2.x`, Alembic `1.x`, Uvicorn `0.34.x`, pytest `8.x`.
 - cryptography `46.x` for streaming AES-256-GCM blob encryption.
 - Node 22, Vite `6.x`, React `19.x`, TypeScript `5.7.x`, Tailwind CSS `4.x`, Vitest `3.x`.
+- Desktop CI/release: Node 24, Python 3.12, Electron `43.4.1`, Electron Forge `7.11.2`, and PyInstaller `6.22.2`, built natively rather than cross-compiled.
 - Docker Compose V2 with healthcheck-aware `depends_on` and `develop.watch` support.
 
 Docs consulted during release hardening: project orchestration docs and current official Docker Compose documentation for healthchecks and `depends_on` conditions.

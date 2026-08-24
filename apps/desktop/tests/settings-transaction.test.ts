@@ -395,4 +395,107 @@ describe("transactional settings apply", () => {
     });
     expect(state.sidecars.verify).toHaveBeenCalledTimes(2);
   });
+
+  it.each(["copy", "use-empty"] as const)(
+    "restores the previous secret environment before starting the former data directory after %s fails",
+    async (dataMigration) => {
+      const state = fixtures();
+      const oldDataDir = "/tmp/bento-data";
+      const newDataDir = `/tmp/bento-${dataMigration}-data`;
+      const previousSecretValues = {
+        telegram_bot_token: "old-token",
+        telegram_webhook_secret: "old-webhook-secret",
+      };
+      const changedSecretValues = { telegram_bot_token: "new-token" };
+      const events: string[] = [];
+      const prepared = {
+        references: {
+          telegram_bot_token: { reference: "desktop-secret:new-token", configured: true },
+          telegram_webhook_secret: { reference: null, configured: false },
+        },
+        values: changedSecretValues,
+        commit: vi.fn(async () => { events.push("secrets:commit"); }),
+        rollback: vi.fn(async () => { events.push("secrets:rollback"); }),
+      };
+      state.secrets.references.mockResolvedValue({
+        telegram_bot_token: "desktop-secret:old-token",
+        telegram_webhook_secret: "desktop-secret:old-webhook",
+      });
+      state.secrets.prepare.mockResolvedValue(prepared);
+      state.secrets.values.mockImplementation(async () => {
+        events.push("secrets:previous-values");
+        return previousSecretValues;
+      });
+      const dataDirectories = {
+        validate: vi.fn(async () => newDataDir),
+        execute: vi.fn(async () => undefined),
+      };
+      let currentDataDir = oldDataDir;
+      Object.assign(state.sidecars, {
+        stop: vi.fn(async () => { events.push(`stop:${currentDataDir}`); }),
+        start: vi.fn(async () => { events.push(`start:${currentDataDir}`); }),
+        setDataDir: vi.fn((value: string) => {
+          currentDataDir = value;
+          events.push(`data-dir:${value}`);
+        }),
+        setSecretEnvironment: vi.fn((values: Record<string, string>) => {
+          events.push(values === previousSecretValues ? "environment:previous" : "environment:changed");
+        }),
+      });
+      let initialRead = true;
+      let patchWrites = 0;
+      state.sidecars.apiJson.mockImplementation(async (pathname: string, init?: RequestInit) => {
+        if (pathname === "/api/settings/validate") return state.validation;
+        if (pathname === "/api/settings/values" && init?.method === "PATCH") {
+          patchWrites += 1;
+          if (dataMigration === "use-empty") {
+            return { revision: 1, values: {}, restart_plan: state.validation.restart_plan };
+          }
+          return patchWrites === 1
+            ? { ...state.applied, restart_plan: { mode: "restart_app", services: ["desktop"], affected_keys: ["data_dir"] } }
+            : { ...state.previous, revision: 6, restart_plan: state.validation.restart_plan };
+        }
+        if (pathname === "/api/settings/values") {
+          if (initialRead) {
+            initialRead = false;
+            return state.previous;
+          }
+          return currentDataDir === newDataDir ? { revision: 0, values: {} } : { ...state.previous, revision: 5 };
+        }
+        throw new Error(`unexpected call ${pathname}`);
+      });
+      state.sidecars.verify.mockRejectedValueOnce(new Error("new directory unhealthy")).mockResolvedValue(undefined);
+      const transaction = new SettingsTransaction(
+        state.sidecars as never,
+        state.secrets as never,
+        state.bootstrap as never,
+        { schemaVersion: 1, dataDir: oldDataDir, lastKnownGoodRevision: 4 },
+        dataDirectories as never,
+      );
+
+      const result = await transaction.apply({
+        revision: 4,
+        values: { data_dir: newDataDir },
+        secrets: {
+          telegram_bot_token: { operation: "set", value: "new-token" },
+          telegram_webhook_secret: { operation: "clear" },
+        },
+        dataMigration,
+      }, () => undefined);
+
+      expect(result).toMatchObject({ ok: false, rolledBack: true });
+      expect(prepared.commit).toHaveBeenCalledOnce();
+      expect(prepared.rollback).toHaveBeenCalledOnce();
+      expect(state.sidecars.setSecretEnvironment.mock.calls).toEqual([
+        [changedSecretValues],
+        [previousSecretValues],
+      ]);
+      expect(changedSecretValues).not.toHaveProperty("telegram_webhook_secret");
+      expect(previousSecretValues.telegram_bot_token).toBe("old-token");
+      expect(previousSecretValues.telegram_webhook_secret).toBe("old-webhook-secret");
+      expect(events.indexOf("secrets:rollback")).toBeLessThan(events.indexOf("environment:previous"));
+      expect(events.indexOf("secrets:previous-values")).toBeLessThan(events.indexOf("environment:previous"));
+      expect(events.indexOf("environment:previous")).toBeLessThan(events.indexOf(`start:${oldDataDir}`));
+    },
+  );
 });

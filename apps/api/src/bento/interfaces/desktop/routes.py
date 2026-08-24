@@ -37,4 +37,3 @@ def _database_is_migrated(settings: Settings) -> bool:
             return row is not None and bool(row[0])
     except (OSError, sqlite3.Error):
         return False
-
