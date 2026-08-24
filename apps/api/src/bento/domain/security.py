@@ -14,3 +14,4 @@ class EncryptionMetadata:
     mode: EncryptionMode
     key_id: str | None = None
     nonce: str | None = None
+    tag: str | None = None

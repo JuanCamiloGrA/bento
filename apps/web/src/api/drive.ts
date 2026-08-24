@@ -175,6 +175,12 @@ export const driveApi: DriveApi = {
   },
 };
 
-function absoluteApiPath(path: string): string {
+export function absoluteApiPath(path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  if (path.startsWith("/api/") && apiClient.baseUrl.endsWith("/api")) {
+    return `${apiClient.baseUrl.slice(0, -4)}${path}`;
+  }
   return `${apiClient.baseUrl}${path}`;
 }

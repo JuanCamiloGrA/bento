@@ -8,14 +8,14 @@ from sqlalchemy import func, select
 
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
-from bento.adapters.media import LocalBlobPathResolver, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
+from bento.adapters.media import BlobSourceMaterializer, LocalBlobPathResolver, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
 from bento.application.media import MediaProcessingService
 from bento.application.media.service import GeneratedMediaFile
 from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState
 from bento.domain.jobs import JobStatus, JobType
-from bento.domain.storage import BlobKind
+from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import BlobRefModel, ManifestEventModel, ThumbnailModel
 from bento.interfaces.worker.dispatch import WorkerDispatcher
@@ -113,6 +113,34 @@ def test_unsupported_thumbnail_job_completes_without_media_generation(tmp_path: 
     asyncio.run(scenario())
 
 
+def test_remote_source_materializer_downloads_and_cleans_plaintext(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        storage = RecordingDownloadStore(b"remote image")
+        materializer = BlobSourceMaterializer(
+            blob_store=storage,
+            local_resolver=LocalBlobPathResolver(tmp_path / "uploads"),
+            temp_dir=tmp_path / "worker-sources",
+        )
+        blob_ref = BlobRef(
+            id="telegram_original_remote",
+            asset_id="asset_remote",
+            backend=StorageBackend.TELEGRAM,
+            kind=BlobKind.ORIGINAL,
+            object_key="telegram/original/remote",
+            size_bytes=12,
+            file_id="file_remote",
+        )
+
+        async with materializer.materialize(blob_ref) as source_path:
+            assert source_path.read_bytes() == b"remote image"
+            materialized_path = source_path
+
+        assert storage.downloaded_blob == blob_ref
+        assert not materialized_path.exists()
+
+    asyncio.run(scenario())
+
+
 async def _media_service(tmp_path: Path, factory, clock: FixedClock):
     assets = SQLiteAssetRepository(factory)
     blob_refs = SQLiteBlobRefCatalog(factory, clock)
@@ -124,7 +152,11 @@ async def _media_service(tmp_path: Path, factory, clock: FixedClock):
         blob_refs=blob_refs,
         thumbnails=thumbnails,
         blob_store=storage,
-        resolver=LocalBlobPathResolver(tmp_path / "uploads"),
+        materializer=BlobSourceMaterializer(
+            blob_store=storage,
+            local_resolver=LocalBlobPathResolver(tmp_path / "uploads"),
+            temp_dir=tmp_path / "worker-sources",
+        ),
         generator=FakeMediaGenerator(tmp_path / "generated"),
         manifest=manifest,
         clock=clock,
@@ -194,6 +226,19 @@ class FakeMediaGenerator:
             _generated(thumb, BlobKind.THUMBNAIL, f"{asset.id}-thumb.jpg"),
             _generated(preview, BlobKind.PREVIEW, f"{asset.id}-preview.jpg"),
         )
+
+
+class RecordingDownloadStore:
+    def __init__(self, content: bytes) -> None:
+        self._content = content
+        self.downloaded_blob: BlobRef | None = None
+
+    async def download(self, blob_ref: BlobRef, destination_path: Path | str) -> Path:
+        self.downloaded_blob = blob_ref
+        destination = Path(destination_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(self._content)
+        return destination
 
 
 def _generated(path: Path, kind: BlobKind, filename: str) -> GeneratedMediaFile:

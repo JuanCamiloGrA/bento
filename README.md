@@ -25,7 +25,7 @@ make up
 
 Open the app at `http://127.0.0.1:5173`. The API is available at `http://127.0.0.1:8000/api`.
 
-Backend dependency management uses `uv >=0.11,<0.12`; install or update it before running `make setup`.
+Backend dependency management uses `uv >=0.11,<0.13`; install or update it before running `make setup`.
 
 ```sh
 uv self update
@@ -93,6 +93,10 @@ Telegram mode requires all Telegram fields:
 - `TELEGRAM_RAW_CHAT_ID`
 - `TELEGRAM_THUMBS_CHAT_ID`
 - `TELEGRAM_JOURNAL_CHAT_ID`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `ENCRYPTION_MODE=aes_gcm`
+- `BENTO_ENCRYPTION_KEY`
+- `BENTO_ENCRYPTION_KEY_ID`
 
 See the complete [Telegram Configuration Guide](docs/telegram-setup.md) for step-by-step setup instructions.
 
@@ -137,8 +141,9 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 ## Version Assumptions
 
 - Python 3.12+.
-- uv `>=0.11,<0.12` for backend dependency locking and local commands.
+- uv `>=0.11,<0.13` for backend dependency locking and local commands.
 - FastAPI `0.115.x`, SQLAlchemy `2.x`, Alembic `1.x`, Uvicorn `0.34.x`, pytest `8.x`.
+- cryptography `46.x` for streaming AES-256-GCM blob encryption.
 - Node 22, Vite `6.x`, React `19.x`, TypeScript `5.7.x`, Tailwind CSS `4.x`, Vitest `3.x`.
 - Docker Compose V2 with healthcheck-aware `depends_on` and `develop.watch` support.
 

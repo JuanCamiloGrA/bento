@@ -12,7 +12,7 @@ from bento.adapters.embeddings import (
 )
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
-from bento.adapters.media import LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
+from bento.adapters.media import BlobSourceMaterializer, LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
 from bento.adapters.ocr import DisabledOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
@@ -59,12 +59,17 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
     thumbnails = SQLiteThumbnailCatalog(session_factory, clock, blob_refs)
     resolver = LocalBlobPathResolver(data_dir / "uploads")
     manifest = SQLiteManifestJournal(session_factory, clock, data_dir / "journal")
+    blob_store = create_blob_store(settings)
     media = MediaProcessingService(
         assets=assets,
         blob_refs=blob_refs,
         thumbnails=thumbnails,
-        blob_store=create_blob_store(settings),
-        resolver=resolver,
+        blob_store=blob_store,
+        materializer=BlobSourceMaterializer(
+            blob_store=blob_store,
+            local_resolver=resolver,
+            temp_dir=data_dir / "cache" / "worker-sources",
+        ),
         generator=LocalMediaGenerator(data_dir / "cache" / "media"),
         manifest=manifest,
         clock=clock,

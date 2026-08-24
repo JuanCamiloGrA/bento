@@ -8,7 +8,7 @@ from pathlib import Path
 
 from bento.domain.assets import AssetMetadata
 from bento.domain.errors import StorageUnavailableError, ValidationFailedError
-from bento.domain.security import EncryptionMetadata
+from bento.domain.security import EncryptionMetadata, EncryptionMode
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 
 
@@ -25,7 +25,7 @@ class LocalBlobStoreAdapter:
         metadata: AssetMetadata,
         encryption: EncryptionMetadata | None = None,
     ) -> BlobRef:
-        del encryption
+        encryption = encryption or EncryptionMetadata(mode=EncryptionMode.NONE)
         source_path = Path(source_ref)
         if not source_path.is_file():
             raise StorageUnavailableError(StorageBackend.LOCAL.value)
@@ -47,6 +47,7 @@ class LocalBlobStoreAdapter:
             object_key=object_key.as_posix(),
             size_bytes=metadata.size_bytes,
             sha256=metadata.sha256,
+            encryption=encryption,
         )
 
     async def get(self, blob_id: str) -> BlobRef | None:
@@ -74,6 +75,20 @@ class LocalBlobStoreAdapter:
         kind, sha256 = _parse_blob_id(blob_id)
         path = self._root_dir / _object_key(kind, sha256)
         await asyncio.to_thread(_delete_if_present, path)
+
+    async def download(self, blob_ref: BlobRef, destination_path: Path | str) -> Path:
+        if blob_ref.backend != StorageBackend.LOCAL:
+            raise StorageUnavailableError(StorageBackend.LOCAL.value)
+        object_path = Path(blob_ref.object_key)
+        if object_path.is_absolute() or ".." in object_path.parts:
+            raise ValidationFailedError("Invalid blob object key")
+        source_path = (self._root_dir / object_path).resolve()
+        root = self._root_dir.resolve()
+        if not source_path.is_relative_to(root) or not source_path.is_file():
+            raise StorageUnavailableError(StorageBackend.LOCAL.value)
+        target_path = Path(destination_path)
+        await asyncio.to_thread(_copy_atomic, source_path, target_path)
+        return target_path
 
 
 def _blob_id(kind: BlobKind, sha256: str) -> str:

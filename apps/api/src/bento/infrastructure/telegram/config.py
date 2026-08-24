@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -15,6 +16,7 @@ class TelegramStorageConfig:
     bot_token: str = field(repr=False)
     api_id: str = field(repr=False)
     api_hash: str = field(repr=False)
+    webhook_secret: str = field(repr=False)
     raw_chat_id: str
     thumbs_chat_id: str
     journal_chat_id: str
@@ -29,12 +31,15 @@ class TelegramStorageConfig:
             "TELEGRAM_BOT_TOKEN": self.bot_token,
             "TELEGRAM_API_ID": self.api_id,
             "TELEGRAM_API_HASH": self.api_hash,
+            "TELEGRAM_WEBHOOK_SECRET": self.webhook_secret,
             "TELEGRAM_RAW_CHAT_ID": self.raw_chat_id,
             "TELEGRAM_THUMBS_CHAT_ID": self.thumbs_chat_id,
             "TELEGRAM_JOURNAL_CHAT_ID": self.journal_chat_id,
         }
         if any(not _present(value) for value in required.values()):
             raise TelegramNotConfiguredError()
+        if re.fullmatch(r"[A-Za-z0-9_-]{32,256}", self.webhook_secret) is None:
+            raise ValidationFailedError("Telegram webhook secret must contain 32-256 URL-safe characters")
         if self.request_timeout_seconds <= 0:
             raise ValidationFailedError("Telegram request timeout must be positive")
         if self.min_interval_seconds < 0:
@@ -76,6 +81,7 @@ def require_telegram_storage_config(
         bot_token=_setting_or_env(settings, env, "telegram_bot_token", "TELEGRAM_BOT_TOKEN") or "",
         api_id=_setting_or_env(settings, env, "telegram_api_id", "TELEGRAM_API_ID") or "",
         api_hash=_setting_or_env(settings, env, "telegram_api_hash", "TELEGRAM_API_HASH") or "",
+        webhook_secret=_setting_or_env(settings, env, "telegram_webhook_secret", "TELEGRAM_WEBHOOK_SECRET") or "",
         raw_chat_id=_setting_or_env(settings, env, "telegram_raw_chat_id", "TELEGRAM_RAW_CHAT_ID") or "",
         thumbs_chat_id=_setting_or_env(settings, env, "telegram_thumbs_chat_id", "TELEGRAM_THUMBS_CHAT_ID") or "",
         journal_chat_id=_setting_or_env(settings, env, "telegram_journal_chat_id", "TELEGRAM_JOURNAL_CHAT_ID") or "",

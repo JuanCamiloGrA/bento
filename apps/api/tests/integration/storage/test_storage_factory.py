@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from bento.adapters.security import NoOpEncryptionAdapter
+from bento.adapters.storage.encrypted_blob_store import EncryptedBlobStoreAdapter
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
-from bento.adapters.storage.telegram_blob_store import TelegramBlobStoreAdapter
+from bento.domain.errors import ValidationFailedError
 from bento.infrastructure.settings import Settings
 from bento.infrastructure.storage import create_blob_store, create_encryption_adapter
 
@@ -30,12 +33,27 @@ def test_telegram_storage_factory_wires_configured_adapter(tmp_path: Path) -> No
         telegram_bot_token="123:test",
         telegram_api_id="42",
         telegram_api_hash="hash",
+        telegram_webhook_secret="webhook-secret-0123456789abcdefghi",
         telegram_raw_chat_id="-100raw",
         telegram_thumbs_chat_id="-100thumbs",
         telegram_journal_chat_id="-100journal",
+        encryption_mode="aes_gcm",
+        bento_encryption_key="a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=",
         data_dir=str(tmp_path),
     )
 
     blob_store = create_blob_store(settings)
 
-    assert isinstance(blob_store, TelegramBlobStoreAdapter)
+    assert isinstance(blob_store, EncryptedBlobStoreAdapter)
+
+
+def test_telegram_storage_factory_refuses_unencrypted_mode(tmp_path: Path) -> None:
+    settings = Settings(
+        storage_backend="telegram",
+        telegram_bot_token="123:test",
+        encryption_mode="none",
+        data_dir=str(tmp_path),
+    )
+
+    with pytest.raises(ValidationFailedError, match="requires ENCRYPTION_MODE=aes_gcm"):
+        create_blob_store(settings)

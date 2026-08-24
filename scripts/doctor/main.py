@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -15,6 +18,7 @@ TELEGRAM_REQUIRED_KEYS = (
     "TELEGRAM_RAW_CHAT_ID",
     "TELEGRAM_THUMBS_CHAT_ID",
     "TELEGRAM_JOURNAL_CHAT_ID",
+    "TELEGRAM_WEBHOOK_SECRET",
 )
 
 
@@ -138,8 +142,22 @@ def _check_telegram(env: dict[str, str]) -> Check:
     if storage_backend != "telegram":
         return Check(name="telegram config", status="pass", detail="local storage mode does not require Telegram")
     missing = [key for key in TELEGRAM_REQUIRED_KEYS if not env.get(key, "").strip()]
+    if env.get("ENCRYPTION_MODE", "none") != "aes_gcm":
+        missing.append("ENCRYPTION_MODE=aes_gcm")
+    if not env.get("BENTO_ENCRYPTION_KEY", "").strip():
+        missing.append("BENTO_ENCRYPTION_KEY")
     if missing:
         return Check(name="telegram config", status="fail", detail=f"missing {', '.join(missing)}")
+    webhook_secret = env["TELEGRAM_WEBHOOK_SECRET"].strip()
+    if re.fullmatch(r"[A-Za-z0-9_-]{32,256}", webhook_secret) is None:
+        return Check(name="telegram config", status="fail", detail="TELEGRAM_WEBHOOK_SECRET has invalid format")
+    encoded_key = env["BENTO_ENCRYPTION_KEY"].strip()
+    try:
+        key = base64.urlsafe_b64decode(encoded_key + "=" * (-len(encoded_key) % 4))
+    except (ValueError, binascii.Error):
+        key = b""
+    if len(key) != 32:
+        return Check(name="telegram config", status="fail", detail="BENTO_ENCRYPTION_KEY must decode to 32 bytes")
     return Check(name="telegram config", status="pass", detail="telegram mode has required settings")
 
 

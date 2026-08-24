@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from sqlalchemy import Select, desc, select
@@ -7,9 +10,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.ids import new_id
 from bento.domain.errors import StorageUnavailableError, ValidationFailedError
+from bento.domain.security import EncryptionMetadata, EncryptionMode
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import BlobRefModel, ThumbnailModel
+from bento.ports.blob_store import BlobStorePort
 from bento.ports.repositories import ClockPort
 
 
@@ -34,6 +39,10 @@ class SQLiteBlobRefCatalog:
                     message_id=blob_ref.message_id,
                     file_id=blob_ref.file_id,
                     file_unique_id=blob_ref.file_unique_id,
+                    encryption_mode=blob_ref.encryption.mode.value,
+                    encryption_key_id=blob_ref.encryption.key_id,
+                    encryption_nonce=blob_ref.encryption.nonce,
+                    encryption_tag=blob_ref.encryption.tag,
                     created_at=now,
                 )
             )
@@ -107,6 +116,34 @@ class LocalBlobPathResolver:
         return path
 
 
+class BlobSourceMaterializer:
+    def __init__(
+        self,
+        *,
+        blob_store: BlobStorePort,
+        local_resolver: LocalBlobPathResolver,
+        temp_dir: Path | str,
+    ) -> None:
+        self._blob_store = blob_store
+        self._local_resolver = local_resolver
+        self._temp_dir = Path(temp_dir)
+
+    @asynccontextmanager
+    async def materialize(self, blob_ref: BlobRef) -> AsyncIterator[Path]:
+        if blob_ref.backend == StorageBackend.LOCAL and blob_ref.encryption.mode == EncryptionMode.NONE:
+            yield self._local_resolver.resolve(blob_ref)
+            return
+
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(prefix="source-", suffix=".tmp", dir=self._temp_dir, delete=False) as handle:
+            destination = Path(handle.name)
+        destination.unlink(missing_ok=True)
+        try:
+            yield await self._blob_store.download(blob_ref, destination)
+        finally:
+            destination.unlink(missing_ok=True)
+
+
 def _blob_ref_from_model(model: BlobRefModel) -> BlobRef:
     return BlobRef(
         id=model.id,
@@ -120,4 +157,10 @@ def _blob_ref_from_model(model: BlobRefModel) -> BlobRef:
         message_id=model.message_id,
         file_id=model.file_id,
         file_unique_id=model.file_unique_id,
+        encryption=EncryptionMetadata(
+            mode=EncryptionMode(model.encryption_mode),
+            key_id=model.encryption_key_id,
+            nonce=model.encryption_nonce,
+            tag=model.encryption_tag,
+        ),
     )

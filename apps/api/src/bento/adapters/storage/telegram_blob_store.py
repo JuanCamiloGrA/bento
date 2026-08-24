@@ -8,7 +8,7 @@ from pathlib import Path
 
 from bento.domain.assets import AssetMetadata
 from bento.domain.errors import StorageUnavailableError, ValidationFailedError
-from bento.domain.security import EncryptionMetadata
+from bento.domain.security import EncryptionMetadata, EncryptionMode
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.telegram.client import TelegramApiClient, TelegramApiError
 from bento.infrastructure.telegram.config import TelegramStorageConfig
@@ -48,7 +48,7 @@ class TelegramBlobStoreAdapter:
         metadata: AssetMetadata,
         encryption: EncryptionMetadata | None = None,
     ) -> BlobRef:
-        del encryption
+        encryption = encryption or EncryptionMetadata(mode=EncryptionMode.NONE)
         source_path = Path(source_ref)
         if not source_path.is_file():
             raise StorageUnavailableError(StorageBackend.TELEGRAM.value)
@@ -83,6 +83,7 @@ class TelegramBlobStoreAdapter:
             message_id=document.message_id,
             file_id=document.file_id,
             file_unique_id=document.file_unique_id,
+            encryption=encryption,
         )
         self._refs[blob_ref.id] = blob_ref
         return blob_ref
@@ -129,7 +130,7 @@ class TelegramBlobStoreAdapter:
                     rate_limiter=self._rate_limiter,
                     sleep=self._sleep,
                 )
-                if blob_ref.sha256 is not None:
+                if blob_ref.sha256 is not None and blob_ref.encryption.mode == EncryptionMode.NONE:
                     actual_sha256 = await asyncio.to_thread(_sha256_file, temporary_path)
                     if actual_sha256 != blob_ref.sha256:
                         raise ValidationFailedError("Downloaded blob sha256 does not match metadata")

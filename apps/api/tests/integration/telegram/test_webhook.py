@@ -15,6 +15,8 @@ from bento.interfaces.telegram.ingestion import TelegramWebhookIngestionService
 from bento.interfaces.telegram.routes import router
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
+WEBHOOK_SECRET = "webhook-secret-0123456789abcdefghi"
+WEBHOOK_HEADERS = {"x-telegram-bot-api-secret-token": WEBHOOK_SECRET}
 
 
 def test_webhook_ingests_shared_document_with_fake_file(tmp_path: Path) -> None:
@@ -26,6 +28,7 @@ def test_webhook_ingests_shared_document_with_fake_file(tmp_path: Path) -> None:
         ingestion=fake_ingestion,  # type: ignore[arg-type]
         temp_dir=tmp_path,
     )
+    app.state.telegram_webhook_secret = WEBHOOK_SECRET
     client = TestClient(app)
 
     response = client.post(
@@ -44,6 +47,7 @@ def test_webhook_ingests_shared_document_with_fake_file(tmp_path: Path) -> None:
                 },
             },
         },
+        headers=WEBHOOK_HEADERS,
     )
 
     assert response.status_code == 200
@@ -65,9 +69,14 @@ def test_webhook_ignores_updates_without_files(tmp_path: Path) -> None:
         ingestion=fake_ingestion,  # type: ignore[arg-type]
         temp_dir=tmp_path,
     )
+    app.state.telegram_webhook_secret = WEBHOOK_SECRET
     client = TestClient(app)
 
-    response = client.post("/api/telegram/webhook", json={"update_id": 1, "message": {"text": "hello"}})
+    response = client.post(
+        "/api/telegram/webhook",
+        json={"update_id": 1, "message": {"text": "hello"}},
+        headers=WEBHOOK_HEADERS,
+    )
 
     assert response.status_code == 200
     assert response.json() == {"accepted": True, "ignored": True, "asset_id": None, "duplicate": False}
@@ -86,6 +95,7 @@ def test_webhook_maps_telegram_download_failure_to_error_envelope(tmp_path: Path
         ingestion=fake_ingestion,  # type: ignore[arg-type]
         temp_dir=tmp_path,
     )
+    app.state.telegram_webhook_secret = WEBHOOK_SECRET
     client = TestClient(app)
 
     response = client.post(
@@ -97,12 +107,36 @@ def test_webhook_maps_telegram_download_failure_to_error_envelope(tmp_path: Path
                 "document": {"file_id": "file-1", "file_name": "note.txt"},
             },
         },
+        headers=WEBHOOK_HEADERS,
     )
 
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "storage_unavailable"
     assert response.json()["error"]["details"] == {"backend": "telegram"}
     assert fake_ingestion.uploaded == []
+
+
+def test_webhook_rejects_missing_or_wrong_secret(tmp_path: Path) -> None:
+    app = FastAPI()
+    app.include_router(router, prefix="/api")
+    app.state.telegram_webhook_ingestion = TelegramWebhookIngestionService(
+        client=FakeTelegramFileClient(b""),
+        ingestion=FakeIngestion(),  # type: ignore[arg-type]
+        temp_dir=tmp_path,
+    )
+    app.state.telegram_webhook_secret = WEBHOOK_SECRET
+    client = TestClient(app)
+
+    missing = client.post("/api/telegram/webhook", json={"update_id": 1})
+    wrong = client.post(
+        "/api/telegram/webhook",
+        json={"update_id": 1},
+        headers={"x-telegram-bot-api-secret-token": "wrong-secret"},
+    )
+
+    assert missing.status_code == 403
+    assert wrong.status_code == 403
+    assert missing.json()["error"]["code"] == "telegram_webhook_forbidden"
 
 
 @dataclass

@@ -1,3 +1,4 @@
+import { absoluteApiPath } from "../../api/drive";
 import type { DriveAsset, DriveFolder, DriveItem, DriveSearchItem } from "../../api/drive";
 
 export type DriveEntryKind = "asset" | "folder";
@@ -39,7 +40,7 @@ export function entryFromItem(item: DriveItem): DriveEntry {
     name: asset.filename,
     processingState: asset.processing_state,
     sizeBytes: asset.size_bytes,
-    thumbnailUrl: asset.thumbnail_url ?? null,
+    thumbnailUrl: asset.thumbnail_url ? absoluteApiPath(asset.thumbnail_url) : null,
     updatedAt: asset.updated_at,
   };
 }
@@ -63,7 +64,7 @@ export function entryFromSearchItem(item: DriveSearchItem): DriveEntry {
     name: item.title,
     processingState: item.processing_state,
     reason: item.reason,
-    thumbnailUrl: item.thumbnail_url,
+    thumbnailUrl: item.thumbnail_url ? absoluteApiPath(item.thumbnail_url) : null,
     updatedAt: "",
   };
 }

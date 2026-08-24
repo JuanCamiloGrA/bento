@@ -70,7 +70,8 @@ describe("DriveBrowser", () => {
 
     expect(await screen.findByRole("heading", { name: "Drive" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Ruta de Drive" })).toHaveTextContent("Raiz");
-    expect(await screen.findByText("Documentos")).toBeInTheDocument();
+    expect(await screen.findAllByText("Documentos")).not.toHaveLength(0);
+    expect(screen.getByRole("complementary", { name: "Árbol de archivos de Drive" })).toBeInTheDocument();
     expect(screen.getByText("factura.pdf")).toBeInTheDocument();
     expect(screen.getByText("Indexando")).toBeInTheDocument();
 
@@ -84,7 +85,7 @@ describe("DriveBrowser", () => {
     render(<DriveBrowser api={api} />);
     await screen.findByText("factura.pdf");
 
-    const picker = screen.getByLabelText("Subir archivos");
+    const picker = screen.getByTestId("drive-file-input");
     const picked = new File(["uno"], "uno.txt", { type: "text/plain" });
     fireEvent.change(picker, { target: { files: [picked] } });
 
@@ -96,6 +97,31 @@ describe("DriveBrowser", () => {
     });
 
     await waitFor(() => expect(api.uploadFiles).toHaveBeenCalledWith({ files: [dropped], folderId: null }));
+  });
+
+  it("uploads a selected folder into newly created nested folders", async () => {
+    const createFolder = vi.fn(async ({ name, parentId }: { name: string; parentId: string | null }) => ({
+      created_at: "2026-01-01T00:00:00Z",
+      id: name === "Proyecto" ? "folder_project" : "folder_reports",
+      name,
+      parent_id: parentId,
+      updated_at: "2026-01-01T00:00:00Z",
+    }));
+    const api = createApi({ createFolder });
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    const report = new File(["report"], "informe.pdf", { type: "application/pdf" });
+    Object.defineProperty(report, "webkitRelativePath", { value: "Proyecto/Informes/informe.pdf" });
+    fireEvent.change(screen.getByTestId("drive-folder-input"), { target: { files: [report] } });
+
+    await waitFor(() => expect(createFolder).toHaveBeenCalledTimes(2));
+    expect(createFolder).toHaveBeenNthCalledWith(1, { name: "Proyecto", parentId: null });
+    expect(createFolder).toHaveBeenNthCalledWith(2, { name: "Informes", parentId: "folder_project" });
+    await waitFor(() =>
+      expect(api.uploadFiles).toHaveBeenCalledWith({ files: [report], folderId: "folder_reports" }),
+    );
+    expect(await screen.findByText("Carga finalizada")).toBeInTheDocument();
   });
 
   it("renames assets and folders from the action menu", async () => {
@@ -112,7 +138,7 @@ describe("DriveBrowser", () => {
     assetView.unmount();
 
     const folderView = render(<DriveBrowser api={api} />);
-    await screen.findByText("Documentos");
+    await screen.findAllByText("Documentos");
 
     openMenu("Acciones Documentos");
     fireEvent.click(screen.getByRole("menuitem", { name: "Renombrar" }));
@@ -137,7 +163,7 @@ describe("DriveBrowser", () => {
     assetView.unmount();
 
     const folderView = render(<DriveBrowser api={api} />);
-    await screen.findByText("Documentos");
+    await screen.findAllByText("Documentos");
 
     openMenu("Acciones Documentos");
     fireEvent.click(screen.getByRole("menuitem", { name: "Mover" }));
@@ -161,7 +187,7 @@ describe("DriveBrowser", () => {
     assetView.unmount();
 
     const folderView = render(<DriveBrowser api={api} />);
-    await screen.findByText("Documentos");
+    await screen.findAllByText("Documentos");
 
     openMenu("Acciones Documentos");
     fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));

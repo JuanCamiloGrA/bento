@@ -17,15 +17,19 @@ class Settings(BaseSettings):
     web_port: int = 5173
     worker_concurrency: int = Field(default=1, ge=1)
     telegram_bot_api_url: str = "http://telegram-bot-api:8081"
-    telegram_bot_token: str | None = None
-    telegram_api_id: str | None = None
-    telegram_api_hash: str | None = None
-    telegram_raw_chat_id: str | None = None
-    telegram_thumbs_chat_id: str | None = None
-    telegram_journal_chat_id: str | None = None
+    telegram_bot_token: str | None = Field(default=None, repr=False)
+    telegram_api_id: str | None = Field(default=None, repr=False)
+    telegram_api_hash: str | None = Field(default=None, repr=False)
+    telegram_raw_chat_id: str | None = Field(default=None, repr=False)
+    telegram_thumbs_chat_id: str | None = Field(default=None, repr=False)
+    telegram_journal_chat_id: str | None = Field(default=None, repr=False)
+    telegram_webhook_secret: str | None = Field(default=None, repr=False)
     telegram_min_interval_seconds: float = Field(default=0.05, ge=0)
     telegram_max_attempts: int = Field(default=3, ge=1)
     telegram_retry_base_delay_seconds: float = Field(default=0.25, ge=0)
+    encryption_mode: Literal["none", "aes_gcm"] = "none"
+    bento_encryption_key: str | None = Field(default=None, repr=False)
+    bento_encryption_key_id: str = "primary"
     ocr_provider: Literal["disabled", "mock", "rapidocr"] = "disabled"
     embeddings_provider: Literal["disabled", "mock", "jina"] = "disabled"
     jina_model_path: str = "./data/models/jina-v5-omni-nano.gguf"
@@ -40,6 +44,7 @@ class Settings(BaseSettings):
             self.telegram_raw_chat_id,
             self.telegram_thumbs_chat_id,
             self.telegram_journal_chat_id,
+            self.telegram_webhook_secret,
         )
         return all(value is not None and str(value).strip() for value in values)
 

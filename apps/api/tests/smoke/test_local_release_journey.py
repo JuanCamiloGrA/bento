@@ -68,7 +68,7 @@ def test_local_release_critical_journey(tmp_path: Path) -> None:
 
     jobs = client.get("/api/jobs")
     assert jobs.status_code == 200
-    assert any(job["asset_id"] == document_asset["id"] and job["type"] == "thumbnail" for job in jobs.json()["items"])
+    assert any(job["asset_id"] == photo_asset["id"] and job["type"] == "thumbnail" for job in jobs.json()["items"])
     reindex = client.post("/api/admin/reindex")
     assert reindex.status_code == 200
     assert reindex.json()["enqueued"] == 1

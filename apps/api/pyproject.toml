@@ -5,6 +5,7 @@ description = "Bento local-first API and worker package."
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",
+  "cryptography>=46,<47",
   "fastapi>=0.115,<0.116",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<0.1",
@@ -37,7 +38,7 @@ build-backend = "hatchling.build"
 packages = ["src/bento"]
 
 [tool.uv]
-required-version = ">=0.11,<0.12"
+required-version = ">=0.11,<0.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

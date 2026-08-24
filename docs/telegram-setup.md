@@ -1,138 +1,157 @@
-# Telegram Configuration Guide in Bento
+# Configurar Telegram en Bento
 
-Bento is a local-first private cloud that allows you to use Telegram as a private and unlimited object storage (blob store) engine. All metadata, search indexes, local SQLite database, and cache remain on your local machine, while encrypted or raw files are securely saved in private Telegram channels.
+Bento mantiene SQLite, índices, trabajos y caché en esta máquina. En modo Telegram,
+los blobs originales, miniaturas y eventos de journal se guardan en canales privados.
 
-This guide will walk you through setting up your environment step-by-step and enabling the Telegram storage backend.
+## Límites y seguridad
 
----
+- Telegram no ofrece almacenamiento contractual "infinito" ni sustituye un backup.
+- El Bot API local admite subidas de hasta 2.000 MB por archivo y descargas sin el
+  límite del Bot API hospedado. Los límites pueden cambiar.
+- Bento cifra cada blob localmente con AES-256-GCM antes de enviarlo a Telegram.
+  El nombre original, MIME y contenido no forman parte del documento remoto.
+- La clave vive únicamente en `.env`; perderla hace irrecuperables los blobs cifrados.
+  Guárdala también en un gestor de contraseñas seguro.
+- SQLite en `data/db` es la fuente de verdad. Conserva una copia de `data/` y no
+  borres los mensajes de los canales manualmente.
 
-## Prerequisites
+Referencias oficiales: [Bot API local](https://core.telegram.org/bots/api#using-a-local-bot-api-server)
+y [servidor Bot API](https://github.com/tdlib/telegram-bot-api#readme).
 
-To configure Telegram as a storage backend (`STORAGE_BACKEND=telegram`), you will need:
-1. A Telegram account.
-2. Obtain Telegram API credentials (`API_ID` and `API_HASH`).
-3. Create a Telegram Bot and obtain its Token (`BOT_TOKEN`).
-4. Create three private Telegram channels and obtain their IDs (`CHAT_ID`).
+## 1. Crear las credenciales
 
----
+1. En <https://my.telegram.org>, abre **API development tools**, crea una app y
+   guarda su `api_id` y `api_hash`.
+2. Habla con [@BotFather](https://t.me/BotFather), ejecuta `/newbot` y guarda el token.
+3. Crea tres canales **privados**:
+   - `Bento - Raw Files`
+   - `Bento - Previews`
+   - `Bento - Journal`
+4. Añade el bot como administrador en los tres canales. Dale permiso para publicar
+   y borrar mensajes.
 
-## Step 1: Obtain Telegram API ID and API Hash
+No pegues el token, el hash ni los IDs en un chat, issue, commit o captura.
 
-To allow the local Telegram Bot API server to work with your Telegram account and upload large files (up to 2 GB), you need application credentials:
+## 2. Obtener los IDs de los canales
 
-1. Go to [https://my.telegram.org](https://my.telegram.org) and log in with your phone number.
-2. Access the **API development tools** section.
-3. If you don't have an application created, fill out the form to create one (you can name it anything, for example, "Bento Storage").
-4. Copy the **App api_id** and **App api_hash** values. You will need them for your `.env` file.
+Antes de migrar el bot al servidor local:
 
----
+1. Publica un mensaje nuevo en cada canal.
+2. Consulta `getUpdates` con el Bot API hospedado.
+3. En cada `channel_post`, copia `chat.id`; normalmente empieza por `-100`.
 
-## Step 2: Create a Telegram Bot
-
-The bot will handle read and write operations (uploading and downloading files).
-
-1. Open Telegram and search for the official [@BotFather](https://t.me/BotFather) user.
-2. Send the `/newbot` command to start the creation process.
-3. Assign a friendly name to the bot (e.g., `Bento Storage Bot`).
-4. Assign a unique username ending in `bot` (e.g., `my_bento_storage_bot`).
-5. [@BotFather](https://t.me/BotFather) will reply with a message containing the **HTTP API Access Token** (e.g., `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Keep this token secure.
-
----
-
-## Step 3: Create Private Channels
-
-Bento organizes files into three categories for greater efficiency. You must create **three different Telegram channels** (configured as **Private**):
-
-1. **Channel for Raw Files (Raw)**:
-   - Suggested name: `Bento - Raw Files`
-   - Usage: Stores the original files uploaded by the user in an encrypted/secure format.
-2. **Channel for Thumbnails (Thumbnails & Previews)**:
-   - Suggested name: `Bento - Previews`
-   - Usage: Stores generated thumbnails and optimized previews to speed up interface loading.
-3. **Channel for the Journal (Journal)**:
-   - Suggested name: `Bento - Journal`
-   - Usage: Stores physical manifest event logs for event synchronization and auditing.
-
-### Add the Bot as an Administrator
-In each of the three newly created channels:
-1. Go to the channel settings and enter the **Administrators** section.
-2. Add your bot (by searching for the username you chose in Step 2).
-3. Grant it permissions to **Post Messages**.
-
----
-
-## Step 4: Obtain the Channel Chat IDs
-
-Private Telegram channel IDs are negative integers that usually start with `-100` (for example, `-1001234567890`). To obtain them:
-
-### Method A: Using an Auxiliary Bot
-1. Forward any message posted in your private channel to the Telegram bot [@ShowJsonBot](https://t.me/ShowJsonBot) or [@userinfobot](https://t.me/userinfobot).
-2. The bot will respond with a JSON or text containing the `forward_from_chat` or `chat.id` property. That number (including the minus sign and `-100`) is your ID.
-
-### Method B: Via Web Browser
-1. Post a test message in the channel where you added the bot.
-2. Go to the following URL in your browser, replacing `<YOUR_BOT_TOKEN>` with your bot's token:
-   `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-3. Look for the block corresponding to the channel in the JSON response and extract the ID (e.g., `"chat":{"id":-100xxxxxxxxxx,...}`).
-
----hat":{"id":-100xxxxxxxxxx,...}`).
-
----
-
-## Step 5: Configure the `.env` File
-
-Copy the `.env.example` file to `.env` (if you haven't already):
-```bash
-cp .env.example .env
-```
-
-Open `.env` and make the following changes:
-
-1. Change the storage backend to `telegram`:
-   ```env
-   STORAGE_BACKEND=telegram
-   ```
-
-2. Enter the credentials and IDs for the corresponding channels:
-   ```env
-   TELEGRAM_API_ID=your_api_id_from_my_telegram_org
-   TELEGRAM_API_HASH=your_api_hash_from_my_telegram_org
-   TELEGRAM_BOT_TOKEN=your_token_from_bot_father
-   TELEGRAM_RAW_CHAT_ID=-100XXXXXXXXXX   # ID of the Bento - Raw Files channel
-   TELEGRAM_THUMBS_CHAT_ID=-100XXXXXXXXXX # ID of the Bento - Previews channel
-   TELEGRAM_JOURNAL_CHAT_ID=-100XXXXXXXXXX # ID of the Bento - Journal channel
-   ```
-
----
-
-## Step 6: Start Bento in Telegram Mode
-
-Since Bento supports large file uploads and downloads up to 2 GB, it uses a local instance of the **Telegram Bot API server** via Docker Compose.
-
-To start Bento with Telegram support, you must use the `telegram` Docker profile. Run the following command in the root of the project:
+Puedes hacer la consulta sin escribir el token literalmente en el historial del shell:
 
 ```bash
-docker compose --profile telegram up --build
+read -rsp "Bot token: " TELEGRAM_BOT_TOKEN; echo
+curl --silent --show-error --config - <<EOF
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
+EOF
+unset TELEGRAM_BOT_TOKEN
 ```
 
-This will spin up the `telegram-bot-api` container in addition to the `web`, `api`, and `worker` services.
+## 3. Completar `.env`
 
----
+Edita el `.env` local de la raíz (está ignorado por Git):
 
-## Step 7: Validate the Configuration (Doctor)
+```dotenv
+STORAGE_BACKEND=telegram
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=tu_api_hash
+TELEGRAM_BOT_TOKEN=123456789:tu_token
+TELEGRAM_RAW_CHAT_ID=-1001111111111
+TELEGRAM_THUMBS_CHAT_ID=-1002222222222
+TELEGRAM_JOURNAL_CHAT_ID=-1003333333333
+TELEGRAM_WEBHOOK_SECRET=secreto_url_safe_de_32_caracteres_o_mas
+ENCRYPTION_MODE=aes_gcm
+BENTO_ENCRYPTION_KEY=clave_base64_url_safe_de_32_bytes
+BENTO_ENCRYPTION_KEY_ID=primary
+```
 
-Once the variables are configured in your `.env` file, you can verify that everything is correct using the project diagnostic script:
+Genera valores nuevos —no reutilices el token del bot— con:
+
+```bash
+python -c 'import base64,secrets; print("BENTO_ENCRYPTION_KEY=" + base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")); print("TELEGRAM_WEBHOOK_SECRET=" + secrets.token_urlsafe(32))'
+```
+
+Copia ambos resultados en `.env`, no en `.env.example`. Bento se negará a iniciar
+el backend Telegram sin AES-GCM, clave y secreto de webhook.
+
+Comprueba solo la estructura, sin imprimir secretos:
 
 ```bash
 make doctor
 ```
 
-If everything is configured correctly, you will see a successful output confirming that the Telegram storage mode has the required settings:
-```text
-[PASS] data directories: ...
-[PASS] database migration: ...
-[PASS] telegram config: telegram mode has required settings
-Doctor passed: STORAGE_BACKEND=telegram.
+## 4. Migrar el bot al Bot API local
+
+Telegram indica que debes ejecutar `logOut` en el Bot API hospedado antes de usar
+un servidor local. Carga `.env` en el proceso y realiza la llamada:
+
+```bash
+set -a; . ./.env; set +a
+curl --silent --show-error --config - <<EOF
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/logOut"
+request = "POST"
+EOF
 ```
 
-Done! Bento will now use your private Telegram channels to store all files securely and confidentially.
+No podrás volver a iniciar sesión inmediatamente en el Bot API hospedado; consulta
+la documentación oficial antes de revertir esta migración.
+
+## 5. Iniciar Bento con Telegram
+
+Detén el modo local y arranca el perfil Telegram:
+
+```bash
+docker compose down
+docker compose --profile telegram up --build -d
+docker compose ps
+```
+
+Valida el bot contra el servidor local:
+
+```bash
+curl --silent --show-error --config - <<EOF
+url = "http://127.0.0.1:8081/bot${TELEGRAM_BOT_TOKEN}/getMe"
+EOF
+```
+
+## 6. Activar archivos enviados al bot
+
+Las subidas desde la web ya usan Telegram cuando `STORAGE_BACKEND=telegram`. Para
+que los documentos enviados directamente al bot entren en Bento, registra el webhook
+interno accesible desde la red de Docker:
+
+```bash
+curl --silent --show-error --config - <<EOF
+url = "http://127.0.0.1:8081/bot${TELEGRAM_BOT_TOKEN}/setWebhook"
+data-urlencode = "url=http://api:8000/api/telegram/webhook"
+data-urlencode = "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
+EOF
+unset TELEGRAM_BOT_TOKEN TELEGRAM_API_ID TELEGRAM_API_HASH TELEGRAM_WEBHOOK_SECRET BENTO_ENCRYPTION_KEY
+```
+
+Comprueba el resultado:
+
+```bash
+set -a; . ./.env; set +a
+curl --silent --show-error --config - <<EOF
+url = "http://127.0.0.1:8081/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
+EOF
+unset TELEGRAM_BOT_TOKEN TELEGRAM_API_ID TELEGRAM_API_HASH TELEGRAM_WEBHOOK_SECRET BENTO_ENCRYPTION_KEY
+```
+
+Abre <http://127.0.0.1:5173>, sube un archivo pequeño desde Drive, descárgalo y
+confirma que apareció en `Bento - Raw Files`. Después envía otro archivo al bot y
+comprueba que aparece en Bento.
+
+## Operación y recuperación
+
+- Arrancar: `docker compose --profile telegram up -d`
+- Ver logs: `docker compose logs -f api worker telegram-bot-api`
+- Detener: `docker compose down`
+- Diagnóstico local: `make doctor`
+- Backup mínimo: copia `data/` con los contenedores detenidos.
+- Backup de clave: conserva `BENTO_ENCRYPTION_KEY` y `BENTO_ENCRYPTION_KEY_ID` por
+  separado de `data/`; sin ellos no existe recuperación posible.

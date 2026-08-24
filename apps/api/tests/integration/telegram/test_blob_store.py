@@ -238,6 +238,7 @@ def _config() -> TelegramStorageConfig:
         bot_token="123:test",
         api_id="42",
         api_hash="hash",
+        webhook_secret="webhook-secret-0123456789abcdefghi",
         raw_chat_id="-100raw",
         thumbs_chat_id="-100thumbs",
         journal_chat_id="-100journal",

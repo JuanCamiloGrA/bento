@@ -5,10 +5,12 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 
 from bento.application.drive import (
@@ -23,11 +25,12 @@ from bento.application.drive import (
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, UploadedAssetFile
 from bento.application.jobs import JobsUseCases, ListJobsQuery
 from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, PhotosUseCases, TimelineQuery
-from bento.domain.assets import Asset, AssetMode
+from bento.domain.assets import Asset, AssetKind, AssetMode
 from bento.domain.drive import DriveItem, Folder
 from bento.domain.errors import DomainError, UnsupportedMediaTypeError, ValidationFailedError
 from bento.domain.jobs import Job, JobType
 from bento.domain.photos import Album, TimelineGroup
+from bento.domain.security import EncryptionMode
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.routes_search import router as search_router
@@ -654,7 +657,11 @@ async def _file_response(
     media_type: str,
     filename: str | None = None,
 ) -> FileResponse:
-    if blob_ref.backend == StorageBackend.LOCAL:
+    cleanup = None
+    if blob_ref.encryption.mode != EncryptionMode.NONE:
+        path = await dependencies.blob_store.download(blob_ref, _download_cache_path(dependencies.data_dir, blob_ref))
+        cleanup = BackgroundTask(path.unlink, missing_ok=True)
+    elif blob_ref.backend == StorageBackend.LOCAL:
         path = dependencies.resolver.resolve(blob_ref)
     elif blob_ref.backend == StorageBackend.TELEGRAM:
         path = await dependencies.blob_store.download(blob_ref, _download_cache_path(dependencies.data_dir, blob_ref))
@@ -662,12 +669,12 @@ async def _file_response(
         from bento.domain.errors import StorageUnavailableError
 
         raise StorageUnavailableError(blob_ref.backend.value)
-    return FileResponse(path, media_type=media_type, filename=filename)
+    return FileResponse(path, media_type=media_type, filename=filename, background=cleanup)
 
 
 def _download_cache_path(data_dir: Path, blob_ref: BlobRef) -> Path:
     safe_id = "".join(character if character.isalnum() or character in {"-", "_", "."} else "_" for character in blob_ref.id)
-    return data_dir / "cache" / "downloads" / safe_id
+    return data_dir / "cache" / "downloads" / f"{safe_id}-{uuid.uuid4().hex}"
 
 
 def _optional_form_value(value: object) -> str | None:
@@ -688,6 +695,8 @@ def _optional_asset_mode(value: object) -> AssetMode | None:
 
 
 def _asset_response(asset: Asset, *, duplicate: bool = False) -> AssetResponse:
+    media_version = quote(asset.updated_at.isoformat(), safe="")
+    has_media = asset.kind in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.VIDEO}
     return AssetResponse(
         id=asset.id,
         kind=asset.kind.value,
@@ -702,9 +711,9 @@ def _asset_response(asset: Asset, *, duplicate: bool = False) -> AssetResponse:
         created_at=asset.created_at.isoformat(),
         updated_at=asset.updated_at.isoformat(),
         duplicate=duplicate,
-        preview_url=None,
+        preview_url=f"/api/assets/{asset.id}/preview?v={media_version}" if has_media else None,
         taken_at=asset.metadata.taken_at.isoformat() if asset.metadata.taken_at else None,
-        thumbnail_url=None,
+        thumbnail_url=f"/api/assets/{asset.id}/thumbnail?v={media_version}" if has_media else None,
     )
 
 

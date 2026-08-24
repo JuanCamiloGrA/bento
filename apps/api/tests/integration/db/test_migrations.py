@@ -48,6 +48,9 @@ def test_initial_migration_creates_expected_sqlite_tables(tmp_path: Path) -> Non
         }
         assert {"provider", "vector_ref", "dimensions"}.issubset(embedding_columns)
 
+        blob_columns = {row[1] for row in connection.execute("PRAGMA table_info(blob_refs)")}
+        assert {"encryption_mode", "encryption_key_id", "encryption_nonce", "encryption_tag"}.issubset(blob_columns)
+
         connection.execute(
             "INSERT INTO asset_fts(asset_id, title, text, metadata) VALUES (?, ?, ?, ?)",
             ("asset_1", "receipt.pdf", "coffee receipt", "application/pdf"),

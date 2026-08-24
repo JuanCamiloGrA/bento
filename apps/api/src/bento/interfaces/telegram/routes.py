@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import uuid
 
 from fastapi import APIRouter, Request
@@ -24,6 +25,8 @@ class TelegramWebhookResponse(BaseModel):
 @router.post("/telegram/webhook", response_model=TelegramWebhookResponse)
 async def telegram_webhook(request: Request) -> TelegramWebhookResponse | JSONResponse:
     try:
+        if not _valid_webhook_secret(request):
+            return _domain_error_response(request, _WebhookForbiddenError())
         update = await request.json()
         if not isinstance(update, dict):
             raise ValueError("Telegram update must be a JSON object")
@@ -63,6 +66,21 @@ class _ValidationError(DomainError):
         super().__init__("validation_failed", message)
 
 
+class _WebhookForbiddenError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("telegram_webhook_forbidden", "Telegram webhook authentication failed")
+
+
+def _valid_webhook_secret(request: Request) -> bool:
+    expected = getattr(request.app.state, "telegram_webhook_secret", None)
+    if expected is None:
+        from bento.interfaces.http.routes import _settings
+
+        expected = require_telegram_storage_config(_settings(request)).webhook_secret
+    provided = request.headers.get("x-telegram-bot-api-secret-token")
+    return bool(provided and hmac.compare_digest(provided, expected))
+
+
 def _domain_error_response(request: Request, error: DomainError) -> JSONResponse:
     request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
     return JSONResponse(
@@ -79,6 +97,8 @@ def _domain_error_response(request: Request, error: DomainError) -> JSONResponse
 
 
 def _status_code(error: DomainError) -> int:
+    if error.code == "telegram_webhook_forbidden":
+        return 403
     if error.code == "telegram_not_configured":
         return 503
     if error.code == "storage_unavailable":

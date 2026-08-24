@@ -30,7 +30,30 @@ export function useDriveItems(api: DriveApi, folderId: string | null, reloadKey:
     void refetch();
   }, [refetch, reloadKey]);
 
+  const processing = state.data?.items.some(
+    (item) => item.type === "asset" && isProcessing(item.asset.processing_state),
+  );
+
+  useEffect(() => {
+    if (!processing) {
+      return;
+    }
+    const timeout = window.setTimeout(async () => {
+      try {
+        const data = await api.listItems({ folderId });
+        setState({ data, error: null, loading: false });
+      } catch {
+        // Keep the current listing visible; the next explicit refresh can surface the error.
+      }
+    }, 1000);
+    return () => window.clearTimeout(timeout);
+  }, [api, folderId, processing, state.data]);
+
   return { ...state, refetch };
+}
+
+function isProcessing(state: string): boolean {
+  return state === "created" || state === "blob_stored" || state.endsWith("_pending");
 }
 
 export function useDriveSearch(

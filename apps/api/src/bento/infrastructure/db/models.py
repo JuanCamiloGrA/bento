@@ -86,6 +86,10 @@ class BlobRefModel(Base):
     message_id: Mapped[str | None] = mapped_column(String(128))
     file_id: Mapped[str | None] = mapped_column(String(512))
     file_unique_id: Mapped[str | None] = mapped_column(String(512))
+    encryption_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="none")
+    encryption_key_id: Mapped[str | None] = mapped_column(String(128))
+    encryption_nonce: Mapped[str | None] = mapped_column(String(64))
+    encryption_tag: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

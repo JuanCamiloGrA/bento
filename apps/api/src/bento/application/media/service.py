@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -27,6 +28,10 @@ class BlobPathResolverPort(Protocol):
     def resolve(self, blob_ref: BlobRef) -> Path: ...
 
 
+class BlobSourceMaterializerPort(Protocol):
+    def materialize(self, blob_ref: BlobRef) -> AbstractAsyncContextManager[Path]: ...
+
+
 class MediaGeneratorPort(Protocol):
     async def generate(self, asset: Asset, source_path: Path) -> tuple["GeneratedMediaFile", ...]: ...
 
@@ -51,7 +56,7 @@ class MediaProcessingService:
         blob_refs: BlobRefCatalogPort,
         thumbnails: ThumbnailCatalogPort,
         blob_store: BlobStorePort,
-        resolver: BlobPathResolverPort,
+        materializer: BlobSourceMaterializerPort,
         generator: MediaGeneratorPort,
         manifest: ManifestJournalPort,
         clock: ClockPort,
@@ -60,7 +65,7 @@ class MediaProcessingService:
         self._blob_refs = blob_refs
         self._thumbnails = thumbnails
         self._blob_store = blob_store
-        self._resolver = resolver
+        self._materializer = materializer
         self._generator = generator
         self._manifest = manifest
         self._clock = clock
@@ -75,8 +80,10 @@ class MediaProcessingService:
         if asset.kind not in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.VIDEO}:
             return ()
 
-        generated_files = await self._generator.generate(asset, self._resolver.resolve(original_ref))
+        async with self._materializer.materialize(original_ref) as source_path:
+            generated_files = await self._generator.generate(asset, source_path)
         stored_refs: list[BlobRef] = []
+        thumbnail_ready = asset.processing_state != ProcessingState.THUMBNAIL_PENDING
         for generated in generated_files:
             metadata = asset.metadata.__class__(
                 original_filename=generated.filename,
@@ -105,6 +112,10 @@ class MediaProcessingService:
                     entity_id=blob_ref.id,
                     payload={"asset_id": asset.id, "width": generated.width, "height": generated.height},
                 )
+                if not thumbnail_ready:
+                    asset = asset.transition_to(ProcessingState.THUMBNAIL_READY, self._clock.now())
+                    await self._assets.save(asset)
+                    thumbnail_ready = True
             elif generated.kind == BlobKind.PREVIEW:
                 await self._blob_refs.add(blob_ref)
                 await self._manifest.append(
@@ -115,6 +126,4 @@ class MediaProcessingService:
                 )
             stored_refs.append(blob_ref)
 
-        if asset.processing_state == ProcessingState.THUMBNAIL_PENDING:
-            await self._assets.save(asset.transition_to(ProcessingState.THUMBNAIL_READY, self._clock.now()))
         return tuple(stored_refs)
