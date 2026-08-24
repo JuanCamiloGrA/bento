@@ -6,6 +6,8 @@ describe("getFileTypeKind", () => {
   it("uses distinct icons for folders, text, Word, PDF and other common files", () => {
     expect(getFileTypeKind("folder", "Documentos")).toBe("folder");
     expect(getFileTypeKind("asset", "notas.txt", "text/plain")).toBe("text");
+    expect(getFileTypeKind("asset", "main.py")).toBe("text");
+    expect(getFileTypeKind("asset", "package.json", "application/json")).toBe("text");
     expect(getFileTypeKind("asset", "contrato.docx")).toBe("docx");
     expect(getFileTypeKind("asset", "factura.pdf", "application/pdf")).toBe("pdf");
     expect(getFileTypeKind("asset", "backup.zip")).toBe("archive");

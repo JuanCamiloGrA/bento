@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, FormEvent } from "react";
 
 import type { DriveApi, DriveBreadcrumb } from "../../api/drive";
@@ -17,6 +17,7 @@ import { t } from "../../i18n/dictionary";
 import { entryFromItem, entryFromSearchItem, formatBytes, isIndexingState, isPartialFailureState } from "./driveModel";
 import type { DriveEntry } from "./driveModel";
 import { FileTypeIcon } from "./FileTypeIcon";
+import { getFileTypeKind } from "./fileType";
 import { FolderTree } from "./FolderTree";
 import { selectionFromDataTransfer, selectionFromFiles, uploadSelection } from "./folderUpload";
 import type { UploadProgress, UploadSummary } from "./folderUpload";
@@ -633,6 +634,15 @@ function EntryMeta({ entry, searchMode }: { entry: DriveEntry; searchMode: boole
   );
 }
 
+function isInlinePreviewable(entry: DriveEntry): boolean {
+  if (entry.kind !== "asset") {
+    return false;
+  }
+
+  const kind = getFileTypeKind("asset", entry.name, entry.mimeType);
+  return kind === "pdf" || kind === "text";
+}
+
 function EntryActions({ api, entry, onOpenAction }: Omit<EntryCardProps, "onNavigate" | "searchMode">) {
   const items = [
     { id: "rename", label: t("drive.action.rename"), onSelect: () => onOpenAction({ entry, type: "rename" }) },
@@ -644,13 +654,23 @@ function EntryActions({ api, entry, onOpenAction }: Omit<EntryCardProps, "onNavi
     <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-app-border/40 pt-1.5 transition-colors group-hover:border-slate-300">
       {entry.kind === "asset" ? (
         <div className="flex min-w-0 items-center gap-1.5">
-          <a
-            className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
-            href={api.previewUrl(entry.id)}
-            target="_blank"
-          >
-            {t("drive.action.preview")}
-          </a>
+          {isInlinePreviewable(entry) ? (
+            <button
+              className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+              onClick={() => onOpenAction({ entry, type: "preview" })}
+              type="button"
+            >
+              {t("drive.action.preview")}
+            </button>
+          ) : (
+            <a
+              className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+              href={api.previewUrl(entry.id)}
+              target="_blank"
+            >
+              {t("drive.action.preview")}
+            </a>
+          )}
           <a
             className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
             download
@@ -683,6 +703,10 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
   }
 
   if (action.type === "preview" && action.entry.kind === "asset") {
+    if (isInlinePreviewable(action.entry)) {
+      return <AssetPreviewDialog api={api} entry={action.entry} onOpenChange={onOpenChange} />;
+    }
+
     return (
       <Dialog onOpenChange={onOpenChange} open title={action.entry.name}>
         <img alt={action.entry.name} className="max-h-[60vh] w-full object-contain" src={api.previewUrl(action.entry.id)} />
@@ -739,6 +763,100 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
       </form>
     </Dialog>
   );
+}
+
+type AssetPreviewState =
+  | { status: "error" }
+  | { status: "loading" }
+  | { content: string; status: "text" }
+  | { status: "pdf"; url: string };
+
+function AssetPreviewDialog({
+  api,
+  entry,
+  onOpenChange,
+}: {
+  api: DriveApi;
+  entry: DriveEntry;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const kind = getFileTypeKind("asset", entry.name, entry.mimeType);
+  const [state, setState] = useState<AssetPreviewState>({ status: "loading" });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    setState({ status: "loading" });
+    void (async () => {
+      try {
+        const response = await fetch(api.downloadUrl(entry.id), { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`Preview request failed with status ${response.status}`);
+        }
+
+        if (kind === "text") {
+          const content = await response.text();
+          if (!cancelled) {
+            setState({ content, status: "text" });
+          }
+          return;
+        }
+
+        const blob = await response.blob();
+        if (typeof URL.createObjectURL !== "function") {
+          throw new Error("PDF preview is not supported in this browser");
+        }
+        objectUrl = URL.createObjectURL(blob);
+        if (cancelled) {
+          revokeObjectUrl(objectUrl);
+          return;
+        }
+        setState({ status: "pdf", url: objectUrl });
+      } catch {
+        if (!controller.signal.aborted && !cancelled) {
+          setState({ status: "error" });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (objectUrl) {
+        revokeObjectUrl(objectUrl);
+      }
+    };
+  }, [api, entry.id, kind]);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open title={entry.name}>
+      {state.status === "loading" ? <LoadingState label={t("drive.preview.loading")} /> : null}
+      {state.status === "error" ? <ErrorState body={t("drive.preview.error")} title={t("drive.error.title")} /> : null}
+      {state.status === "text" ? (
+        <pre
+          aria-label={entry.name}
+          className="max-h-[60vh] overflow-auto rounded-app-control border border-app-border bg-slate-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-100"
+        >
+          {state.content || t("drive.preview.empty")}
+        </pre>
+      ) : null}
+      {state.status === "pdf" ? (
+        <iframe
+          className="h-[min(64vh,42rem)] w-full rounded-app-control border border-app-border bg-slate-100"
+          title={`${entry.name} · ${t("drive.action.preview")}`}
+          src={state.url}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+function revokeObjectUrl(url: string) {
+  if (typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function normalizeBreadcrumbs(items: DriveBreadcrumb[] | undefined, folderId: string | null): DriveBreadcrumb[] {

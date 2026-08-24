@@ -27,6 +27,13 @@ const asset: DriveAsset = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
+const textAsset: DriveAsset = {
+  ...asset,
+  filename: "README.md",
+  id: "asset_readme",
+  mime_type: "text/markdown",
+};
+
 function createApi(overrides: Partial<DriveApi> = {}): DriveApi {
   return {
     createFolder: vi.fn(async ({ name, parentId }) => ({
@@ -202,14 +209,70 @@ describe("DriveBrowser", () => {
     render(<DriveBrowser api={api} />);
     await screen.findByText("factura.pdf");
 
-    expect(screen.getByRole("link", { name: "Vista previa" })).toHaveAttribute(
-      "href",
-      "/api/assets/asset_invoice/preview",
-    );
+    expect(screen.getByRole("button", { name: "Vista previa" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Descargar" })).toHaveAttribute(
       "href",
       "/api/assets/asset_invoice/download",
     );
+  });
+
+  it("loads Markdown and plain text into an inline preview", async () => {
+    const fetchMock = vi.fn(async () => ({
+      blob: async () => new Blob(),
+      ok: true,
+      status: 200,
+      text: async () => "# Bento\n\nconst answer = 42;",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const api = createApi({
+      listItems: vi.fn(async (): Promise<DriveItemsResponse> => ({
+        breadcrumbs: [],
+        items: [{ asset: textAsset, type: "asset" }],
+        next_cursor: null,
+      })),
+    });
+
+    try {
+      render(<DriveBrowser api={api} />);
+      await screen.findByText("README.md");
+      fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+
+      expect(await screen.findByText(/# Bento/)).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/assets/asset_readme/download",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("loads PDFs into an embedded browser preview", async () => {
+    const fetchMock = vi.fn(async () => ({
+      blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
+      ok: true,
+      status: 200,
+      text: async () => "",
+    }));
+    const createObjectURL = vi.fn(() => "blob:pdf-preview");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+
+    try {
+      const api = createApi();
+      render(<DriveBrowser api={api} />);
+      await screen.findByText("factura.pdf");
+      fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+
+      expect(await screen.findByTitle("factura.pdf · Vista previa")).toHaveAttribute("src", "blob:pdf-preview");
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/assets/asset_invoice/download",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("opens the context menu with the keyboard and returns focus on escape", async () => {

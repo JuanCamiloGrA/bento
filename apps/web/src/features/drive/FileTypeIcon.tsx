@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { cx } from "../../lib/cx";
 import { getFileTypeKind, type FileTypeKind } from "./fileType";
 
@@ -34,7 +36,8 @@ const palettes: Record<FileTypeKind, FileTypePalette> = {
 export function FileTypeIcon({ className, mimeType, name, previewSrc, size = "grid", type }: FileTypeIconProps) {
   const kind = getFileTypeKind(type, name, mimeType);
   const palette = palettes[kind];
-  const showPreview = kind === "image" && Boolean(previewSrc);
+  const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null);
+  const showPreview = kind === "image" && Boolean(previewSrc) && previewSrc !== failedPreviewSrc;
 
   return (
     <span
@@ -43,7 +46,13 @@ export function FileTypeIcon({ className, mimeType, name, previewSrc, size = "gr
       data-file-type={kind}
     >
       {showPreview ? (
-        <img alt="" className="h-full w-full rounded-md object-cover" loading="lazy" src={previewSrc ?? undefined} />
+        <img
+          alt=""
+          className="h-full w-full rounded-md object-cover"
+          loading="lazy"
+          onError={() => setFailedPreviewSrc(previewSrc ?? null)}
+          src={previewSrc ?? undefined}
+        />
       ) : kind === "folder" ? (
         <FolderGlyph palette={palette} />
       ) : (

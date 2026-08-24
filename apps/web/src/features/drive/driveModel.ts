@@ -40,7 +40,10 @@ export function entryFromItem(item: DriveItem): DriveEntry {
     name: asset.filename,
     processingState: asset.processing_state,
     sizeBytes: asset.size_bytes,
-    thumbnailUrl: asset.thumbnail_url ? absoluteApiPath(asset.thumbnail_url) : null,
+    thumbnailUrl:
+      asset.thumbnail_url && asset.processing_state !== "thumbnail_pending"
+        ? absoluteApiPath(asset.thumbnail_url)
+        : null,
     updatedAt: asset.updated_at,
   };
 }
