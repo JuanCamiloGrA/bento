@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from bento.infrastructure.settings import Settings, get_settings
+from bento.infrastructure.settings import Settings, get_settings, settings_database_path
 from bento.interfaces.http.routes import router
 
 
@@ -9,6 +9,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
     app = FastAPI(title=resolved_settings.app_name, version=resolved_settings.app_version)
     app.state.settings = resolved_settings
+    app.state.settings_database_path = settings_database_path(resolved_settings)
 
     app.add_middleware(
         CORSMiddleware,

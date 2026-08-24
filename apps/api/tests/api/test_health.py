@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
 
+from bento.infrastructure.settings import Settings
 from bento.interfaces.http.main import create_app
 
 
 def test_health_route_reports_local_mode() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(Settings(storage_backend="local")))
 
     response = client.get("/api/health")
 
