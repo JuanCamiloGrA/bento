@@ -29,7 +29,8 @@ if (relative.some((filename) => /(^|\/)\.env(?:\.|$)/u.test(filename))) {
 if (!relative.some((filename) => /resources\/bento-sidecar\/bento-sidecar(?:\.exe)?$/iu.test(filename))) {
   throw new Error("The platform-native Python sidecar is missing from the package");
 }
-const asar = files.find((filename) => filename.endsWith(`${path.sep}resources${path.sep}app.asar`));
+const asarSuffix = `${path.sep}resources${path.sep}app.asar`.toLocaleLowerCase("en-US");
+const asar = files.find((filename) => filename.toLocaleLowerCase("en-US").endsWith(asarSuffix));
 if (!asar) throw new Error("The production app.asar is missing");
 const asarContents = await readFile(asar);
 for (const marker of ["http://localhost:5173", "electron/default_app"]) {
