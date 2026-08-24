@@ -134,3 +134,38 @@ Exit criteria:
 - Security/performance pass.
 - Critical journeys pass.
 - MVP Definition of Done satisfied.
+
+## Stage 11: Canonical Editable Settings Backend
+
+Owner: configurable-settings-backend agent.
+
+Exit criteria:
+
+- One typed registry replaces scattered environment reads across API, worker, doctor, and adapters.
+- Versioned non-secret settings, validation, source/lock metadata, restart plans, import preview, and safe export APIs exist.
+- Secret fields use presence/reference contracts and never persist plaintext in SQLite.
+- Existing `GET /api/settings` remains backward compatible.
+
+## Stage 12: Desktop Host And Settings UX
+
+Parallel agents after Stage 11 is green:
+
+- desktop-runtime agent owns Electron host, preload bridge, sidecar supervision, secure store, and packaging scaffold.
+- desktop-settings-ui agent owns first-run and editable Settings UI against the stable contracts.
+
+Exit criteria:
+
+- Electron starts the packaged renderer, API, and worker without Docker.
+- Secure secret mutations and native path pickers use the allowlisted bridge.
+- Settings UX supports validation, dirty state, apply/restart progress, rollback feedback, source badges, and accessible guided setup.
+- Browser/headless UI degrades clearly when desktop-only capabilities are absent.
+
+## Stage 13: Cross-Platform Desktop Release
+
+Owner: desktop-release agent.
+
+Exit criteria:
+
+- Native CI builds and smoke tests pass on Windows, macOS, and Linux.
+- Signing/notarization, checksums, SBOM, upgrade/data-retention, crash recovery, and release documentation are complete.
+- Docker/headless delivery and all prior critical journeys remain green.

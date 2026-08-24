@@ -51,6 +51,8 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Drive UI.
 - Photos UI.
 - Jobs/settings/status UI.
+- Configuración editable con validación, secretos protegidos y aplicación/reinicio controlados.
+- Aplicación de escritorio multiplataforma con Electron y sidecars locales de API/worker.
 - Seed data, doctor script, docs, release hardening.
 
 ## Non-Goals

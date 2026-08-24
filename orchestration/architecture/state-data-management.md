@@ -77,3 +77,11 @@ Restore can remain basic or partial for MVP, but event writes and JSONL export a
 - Use TanStack Query for server state.
 - Use local component state for UI-only state such as selected items, active layout, dialogs, and context menus.
 - Do not create a global client store unless a feature has cross-route UI state that TanStack Query cannot represent.
+
+## Configuration State
+
+- SQLite stores versioned non-secret settings, their source metadata, and the last-known-good revision.
+- A settings registry defines validation and restart scope; do not duplicate these rules in React or Electron.
+- Secret values are held outside SQLite by the desktop secure store; SQLite may contain only opaque references and configured/missing state.
+- Settings drafts are local form state. TanStack Query owns schema, effective values, validation results, and apply progress returned by API/desktop bridge.
+- Applying settings uses optimistic concurrency. API and worker start from the same immutable effective snapshot for a revision.

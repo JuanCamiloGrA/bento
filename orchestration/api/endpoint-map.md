@@ -7,6 +7,12 @@ All routes are under `/api`.
 - `GET /api/health`: returns service health and DB reachability.
 - `GET /api/version`: returns app version/build info.
 - `GET /api/settings`: returns storage/OCR/embedding/job configuration status safe for UI.
+- `GET /api/settings/schema`: typed editable field metadata, source, constraints, sensitivity, and restart scope.
+- `GET /api/settings/values`: effective non-secret values plus revision and configured/missing markers for secrets.
+- `POST /api/settings/validate`: validates a draft and returns field errors, warnings, optional probe results, and restart plan without persisting.
+- `PATCH /api/settings/values`: atomically persists allowed non-secret changes using the current revision; never accepts or returns plaintext secrets.
+- `POST /api/settings/import/preview`: parses a user-selected legacy `.env` payload into a redacted preview; desktop bridge performs file selection.
+- `GET /api/settings/export`: exports non-secret portable configuration.
 
 ## Assets And Upload
 

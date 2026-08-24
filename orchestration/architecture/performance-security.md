@@ -22,6 +22,10 @@
 - Treat MIME sniffing as advisory; store declared and detected metadata.
 - Logical delete must not immediately remove remote blobs unless a specific purge use case is later added.
 - Telegram adapters must not assume plaintext blobs; storage pipeline must allow `EncryptionPort`.
+- Desktop renderer has no Node.js access and communicates only through an allowlisted preload bridge.
+- Desktop sidecars use loopback-only ephemeral ports, per-launch authentication, and strict origin validation.
+- Settings marked secret must be redacted at schema, API, IPC, logging, diagnostics, crash-report, and export boundaries.
+- Desktop secure storage uses Electron `safeStorage`; verify encryption availability and never fall back silently to plaintext when the OS key store is unavailable.
 
 ## Encryption Port
 

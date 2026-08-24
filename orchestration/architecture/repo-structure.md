@@ -4,6 +4,16 @@ Assumption: create this monorepo layout from an empty repository.
 
 ```txt
 apps/
+  desktop/
+    package.json
+    forge.config.ts
+    src/
+      main/
+      preload/
+      shared/
+    resources/
+      sidecars/
+    tests/
   api/
     pyproject.toml
     alembic.ini
@@ -54,6 +64,8 @@ Makefile
 README.md
 ```
 
+Desktop packaging output belongs under ignored `dist/desktop/`. Packaged Python sidecars are built from the existing `apps/api/src/bento` package; no second backend implementation is allowed.
+
 ## Backend Package
 
 - `domain/`: pure entities, value objects, enums, domain errors.
@@ -81,3 +93,4 @@ README.md
 - `Makefile`: `dev`, `up`, `down`, `logs`, `doctor`, `seed`, `test`.
 - `.env.example`: safe defaults with `STORAGE_BACKEND=local`.
 - Root `README.md`: user setup, commands, architecture summary, limitations.
+- Desktop packaging configuration may add root workspace scripts only while the desktop-runtime stage owns shared root files.

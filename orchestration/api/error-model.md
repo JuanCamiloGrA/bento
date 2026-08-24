@@ -50,3 +50,8 @@ Use consistent JSON errors:
 - `embeddings_disabled`
 - `job_not_retryable`
 - `validation_failed`
+- `settings_revision_conflict`
+- `settings_probe_failed`
+- `settings_restart_failed`
+- `settings_source_locked`
+- `secret_store_unavailable`

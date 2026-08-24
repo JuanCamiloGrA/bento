@@ -4,10 +4,15 @@ Telegram Private Cloud MVP Lite is a local-first web app that uses Telegram only
 
 ## Runtime Processes
 
+- `desktop`: Electron main/preload process; owns the native window, lifecycle, secure desktop secrets, file pickers, updates, and supervision of local sidecars.
 - `web`: React + Vite UI served locally.
 - `api`: FastAPI HTTP interface, local settings, upload orchestration, use-case boundary.
 - `worker`: Python background process using the same backend package as `api`.
 - `telegram-bot-api`: local Telegram Bot API server in `--local` mode.
+
+In packaged desktop builds, Electron loads the compiled React renderer and supervises packaged `api` and `worker` sidecars on loopback-only ephemeral ports. Docker Compose remains a supported development and headless deployment path; it is not a runtime dependency for desktop users. `telegram-bot-api` is started only when Telegram storage is enabled.
+
+See `architecture/desktop-runtime-settings.md` for lifecycle, configuration precedence, IPC, secrets, and packaging rules.
 
 ## Storage Model
 
@@ -24,6 +29,14 @@ Telegram Private Cloud MVP Lite is a local-first web app that uses Telegram only
 4. API responds quickly with asset state.
 5. Worker creates thumbnails/previews first, then metadata enrichment, OCR, embeddings, and indexes.
 6. UI polls/subscribes through API and displays indexing states without blocking.
+
+## Configuration Flow
+
+1. A central typed settings registry defines keys, types, defaults, constraints, sensitivity, source, and restart scope.
+2. Non-secret user choices persist in SQLite; secrets are referenced by opaque IDs and stored by the Electron main process with the operating-system-backed secure store.
+3. Desktop main launches sidecars from one effective settings snapshot and never writes a plaintext `.env` file.
+4. Applying changes validates the full candidate configuration, persists it atomically, and restarts only the affected process group.
+5. Headless/Docker mode continues to accept environment variables and clearly reports UI-locked overrides.
 
 ## Replaceable Adapters
 

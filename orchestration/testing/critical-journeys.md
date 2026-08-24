@@ -14,3 +14,10 @@ These journeys must be covered before release.
 10. Disabled Telegram/local mode: app works with `STORAGE_BACKEND=local`.
 11. Telegram mode smoke: configured adapter uploads/downloads through local Telegram Bot API with fake or real test channel.
 12. Manifest export: important events are persisted and JSONL export contains them.
+13. Desktop fresh install: install and open on Windows, macOS, and Linux without Docker/Python/Node; local mode reaches a ready window.
+14. First-run setup: choose a valid data directory, keep local storage, skip AI, finish, relaunch, and retain choices.
+15. Editable settings: change worker/OCR configuration, see validation and restart scope, save, restart only affected sidecars, and observe the new effective revision.
+16. Secret safety: configure Telegram through masked fields, relaunch successfully, and verify secrets are absent from SQLite, renderer storage, API responses, exports, and logs.
+17. Invalid settings rollback: apply an unavailable model/path or broken sidecar setting, fail readiness, restore last-known-good configuration, and keep Settings usable.
+18. Legacy migration: preview/import a `.env`, report unknown/locked keys, redact secrets, and stop depending on the file after a successful desktop import.
+19. Headless compatibility: Docker environment overrides remain effective, appear locked with source explanation, and existing local-mode journeys remain green.

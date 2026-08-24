@@ -57,6 +57,20 @@ Stage 10:
 
 - Release-hardening owns root docs, seed/smoke/e2e scripts, final config polish, and cross-cutting fixes.
 
+Stage 11:
+
+- Configurable-settings-backend owns backend setting domain/application/ports/adapters/infrastructure/API, migrations, and matching backend tests.
+
+Stage 12:
+
+- Desktop-runtime owns `/apps/desktop/**`, desktop build scripts, and temporary root ownership for package/build/CI wiring.
+- Desktop-settings-ui owns Settings/first-run feature UI, Settings API client additions, relevant i18n keys, and frontend tests.
+- The two agents coordinate only through the frozen typed desktop/settings contracts from Stage 11; they must not edit each other's paths.
+
+Stage 13:
+
+- Desktop-release owns desktop CI/release configuration, packaging smoke tests, desktop setup/recovery docs, and narrowly scoped cross-cutting release fixes.
+
 ## Fastest Safe Sequence
 
 1. Foundation.
@@ -68,6 +82,9 @@ Stage 10:
 7. Hybrid-search after OCR and embeddings indexing contracts are merged.
 8. Search-ui, drive-ui, photos-ui, jobs-settings-ui in parallel after relevant API contracts are stable.
 9. Release-hardening last.
+10. Configurable-settings-backend after the existing MVP is green.
+11. Desktop-runtime and desktop-settings-ui in parallel after settings contracts are frozen.
+12. Desktop-release after both Stage 12 workstreams are merged and green.
 
 ## User-Visible Behavior Ownership
 
@@ -83,6 +100,10 @@ Stage 10:
 - OCR searchability after indexing: ocr-indexing agent.
 - Semantic searchability after indexing: embeddings agent, surfaced through hybrid-search and search-ui.
 - Release setup, seed, doctor, and critical journeys: release-hardening agent.
+- Canonical editable settings registry/API: configurable-settings-backend agent.
+- Desktop lifecycle, secret store, IPC, and packaging scaffold: desktop-runtime agent.
+- First-run and editable Settings experience: desktop-settings-ui agent.
+- Signed cross-platform artifacts and desktop release validation: desktop-release agent.
 
 ## No Duplicate Ownership
 

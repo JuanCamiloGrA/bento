@@ -5,10 +5,12 @@
 - API: `python -m bento.interfaces.http.main` or equivalent Uvicorn target.
 - Worker: `python -m bento.interfaces.worker.main`.
 - Telegram webhook handler is mounted in FastAPI under `/api/telegram/webhook`.
+- Desktop main: Electron entry under `apps/desktop/src/main`; it supervises packaged API/worker entrypoints and loads the compiled web renderer.
 
 ## HTTP Route Groups
 
 - Health/settings: `/api/health`, `/api/version`, `/api/settings`
+- Editable settings: `/api/settings/schema`, `/api/settings/values`, `/api/settings/validate`, `/api/settings/import/preview`, `/api/settings/export`
 - Assets/upload: `/api/assets/*`
 - Drive: `/api/drive/*`
 - Photos: `/api/photos/*`
@@ -36,6 +38,8 @@ Assumption: Vite SPA with client-side routing.
 - `/settings`: settings and storage status.
 
 The sidebar and top global search bar remain visible on all main routes.
+
+In desktop mode, `/settings` may call the narrow preload bridge for secret mutations, native path selection, apply/restart progress, and platform metadata. Browser mode must feature-detect this bridge and remain functional for status and non-secret configuration.
 
 ## UI Command Entrypoints
 

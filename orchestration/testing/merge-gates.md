@@ -25,3 +25,12 @@
 - README setup docs work from a clean clone.
 - No required secret committed.
 - No product behavior from the spec unassigned or untested.
+
+## Desktop Release
+
+- Renderer, preload, main-process, backend settings, and sidecar lifecycle tests pass.
+- Fresh-install smoke passes on native Windows, macOS, and Linux CI runners.
+- Packaged builds contain no development server URL, source `.env`, plaintext secret, or writable executable resource path.
+- macOS artifact is signed/notarized; Windows artifact is signed for production; Linux artifact publishes checksum and dependency notes.
+- Sidecar crash, restart, rollback, single-instance, upgrade, and uninstall-with-data-retained journeys pass.
+- Docker/headless regression suite remains green.
