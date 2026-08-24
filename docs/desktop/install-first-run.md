@@ -23,7 +23,7 @@ Get-FileHash .\BentoSetup.exe -Algorithm SHA256
 
 Ejecuta el `Setup.exe` de Squirrel. Windows debe mostrar un editor válido en la firma digital. Bento se instala por usuario y puede abrirse desde Inicio. Desinstalar la aplicación elimina sus binarios, pero no borra automáticamente el directorio de datos.
 
-## macOS Intel y Apple silicon
+## macOS 13+ Intel y Apple silicon
 
 Elige el `.dmg` que coincida con el procesador, arrastra Bento a Aplicaciones y ábrelo. El release de producción debe superar Gatekeeper sin instrucciones para eludirlo: se firma con Developer ID y se notariza. No instales un DMG de otra arquitectura bajo la expectativa de soporte nativo.
 

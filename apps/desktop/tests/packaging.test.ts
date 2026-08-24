@@ -34,6 +34,7 @@ describe("native packaging scaffold", () => {
     expect(forgeSource).toContain('platforms: ["win32"]');
     expect(forgeSource).toContain('platforms: ["darwin"]');
     expect(forgeSource).toContain('platforms: ["linux"]');
+    expect(forgeSource).toContain('bin: "bento"');
     expect(forgeSource).toContain("process.platform");
     expect(forgeSource).toContain("process.arch");
   });

@@ -7,8 +7,8 @@ Los sidecars PyInstaller se construyen en su sistema nativo; no se cruzan arquit
 | Destino | Runner | Makers publicados |
 | --- | --- | --- |
 | Windows x64 | `windows-2025` | Squirrel `Setup.exe`, `.nupkg`, `RELEASES` |
-| macOS x64 | `macos-15-intel` | `.dmg`, `.zip` |
-| macOS arm64 | `macos-15` | `.dmg`, `.zip` |
+| macOS 13+ x64 | `macos-15-intel` | `.dmg`, `.zip` |
+| macOS 13+ arm64 | `macos-15` | `.dmg`, `.zip` |
 | Ubuntu 22.04 x64 | `ubuntu-22.04` | `.deb`, `.zip` |
 
 Cada fila usa Node 24 y Python 3.12, instala dependencias bloqueadas, ejecuta tests backend/web/desktop, construye el renderer y sidecar, ejecuta Forge `make`, abre dos veces el paquete nativo y verifica makers, ausencia de `.env` y URLs de desarrollo. Después lleva makers y SBOM a un staging plano, rechaza nombres colisionados y genera `SHA256SUMS` con los basenames finales descargables.
@@ -45,6 +45,7 @@ Esto crea `dist/desktop/make`, ejecuta el smoke, genera `bento-sbom.cdx.json` y 
 ## Versiones y fuentes consultadas
 
 - Electron `43.4.1`, Electron Forge `7.11.2`, PyInstaller `6.22.2`, uv `0.12.5`.
+- ONNX Runtime `1.23.2` on macOS Intel (the final release with an x64 wheel) and the current locked release on other targets.
 - Documentación oficial de Electron sobre distribución, firma, notarización y updates.
 - Documentación oficial de Electron Forge de Packager/makers y firma.
 - Documentación oficial de GitHub Actions sobre runners nativos, permisos mínimos, SHA completos y attestations.

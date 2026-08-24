@@ -26,7 +26,7 @@ if (!packageOnly) {
 if (relative.some((filename) => /(^|\/)\.env(?:\.|$)/u.test(filename))) {
   throw new Error("A plaintext .env file was included in the packaged release");
 }
-if (!relative.some((filename) => /resources\/bento-sidecar\/bento-sidecar(?:\.exe)?$/u.test(filename))) {
+if (!relative.some((filename) => /resources\/bento-sidecar\/bento-sidecar(?:\.exe)?$/iu.test(filename))) {
   throw new Error("The platform-native Python sidecar is missing from the package");
 }
 const asar = files.find((filename) => filename.endsWith(`${path.sep}resources${path.sep}app.asar`));

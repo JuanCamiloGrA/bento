@@ -5,6 +5,8 @@ import { validateSafePath } from "./validation";
 export type DataMigrationMode = "copy" | "use-empty";
 
 export class DataDirectoryMigrator {
+  constructor(private readonly getAvailableBytes: (directory: string) => Promise<number> = availableBytes) {}
+
   async validate(sourceValue: string, destinationValue: string, mode: DataMigrationMode | undefined): Promise<string> {
     if (!mode) throw new Error("Choose whether to copy the current data or use an empty directory");
     const source = validateSafePath(sourceValue);
@@ -23,7 +25,7 @@ export class DataDirectoryMigrator {
     if ((await readdir(realDestination)).length !== 0) throw new Error("The new data directory must be empty");
     if (mode === "copy") {
       const required = await directorySize(source);
-      const available = await availableBytes(realDestination);
+      const available = await this.getAvailableBytes(realDestination);
       if (available < Math.ceil(required * 1.1)) throw new Error("The destination does not have enough free space");
     }
     return realDestination;

@@ -11,7 +11,7 @@ The packaged Electron app is the recommended path for desktop users: it includes
 Download the artifact for your architecture from a signed GitHub release:
 
 - Windows x64: Squirrel `Setup.exe`.
-- macOS Intel or Apple silicon: the matching notarized `.dmg`.
+- macOS 13+ on Intel or Apple silicon: the matching notarized `.dmg`.
 - Ubuntu 22.04 x64 and compatible Debian-based systems: `.deb`; a portable `.zip` is also published.
 
 Verify the matching `SHA256SUMS-*` file before installing. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not general distribution.

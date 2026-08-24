@@ -1,4 +1,5 @@
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
 const electron = vi.hoisted(() => ({ netFetch: vi.fn() }));
@@ -13,6 +14,8 @@ function setup() {
   registerBentoProtocol(protocol as never, "/opt/bento/renderer", api);
   return { api, handler: handler!, protocol };
 }
+
+const rendererRootUrl = pathToFileURL(path.resolve("/opt/bento/renderer")).toString();
 
 describe("bento protocol", () => {
   it.each([
@@ -60,7 +63,7 @@ describe("bento protocol", () => {
     const { handler } = setup();
     electron.netFetch.mockResolvedValueOnce(new Response("asset", { status: 200, headers: { "content-type": "text/javascript" } }));
     const response = await handler(new Request("bento://app/assets/app.js"));
-    expect(electron.netFetch).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/\/opt\/bento\/renderer\/assets\/app\.js$/u));
+    expect(electron.netFetch).toHaveBeenCalledWith(new URL("assets/app.js", `${rendererRootUrl}/`).toString());
     expect(response.headers.get("content-security-policy")).toBe(CSP);
     expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
@@ -71,15 +74,19 @@ describe("bento protocol", () => {
     const { handler } = setup();
     electron.netFetch.mockResolvedValue(new Response("index", { status: 200 }));
     await handler(new Request("bento://app/settings/general"));
-    expect(electron.netFetch).toHaveBeenLastCalledWith(expect.stringMatching(/\/opt\/bento\/renderer\/index\.html$/u));
+    expect(electron.netFetch).toHaveBeenLastCalledWith(new URL("index.html", `${rendererRootUrl}/`).toString());
 
     for (const pathname of ["/%2e%2e/%2e%2e/etc/passwd", "/..%2f..%2fetc/passwd", "/%00/asset.js"]) {
       electron.netFetch.mockClear();
       await handler(new Request(`bento://app${pathname}`));
       for (const [fileUrl] of electron.netFetch.mock.calls) {
-        expect(fileUrl).toMatch(/^file:\/\/\/opt\/bento\/renderer\//u);
+        expect(fileUrl).toMatch(new RegExp(`^${escapeRegExp(`${rendererRootUrl}/`)}`, "u"));
         expect(fileUrl).not.toBe(`file://${path.join("etc", "passwd")}`);
       }
     }
   });
 });
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}

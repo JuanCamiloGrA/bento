@@ -4,9 +4,7 @@ import {
   readFile,
   readdir,
   rm,
-  statfs,
   symlink,
-  truncate,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -84,14 +82,10 @@ describe("data directory migration safety", () => {
   });
 
   it("rejects copy when required size plus safety margin exceeds free space", async () => {
-    const { destination, migrator, source } = await fixture();
+    const { destination, source } = await fixture();
+    const migrator = new DataDirectoryMigrator(async () => 1);
     await mkdir(destination);
-    const filesystem = await statfs(destination);
-    const available = Number(filesystem.bavail) * Number(filesystem.bsize);
-    const sparseSize = Math.min(Number.MAX_SAFE_INTEGER - 1, Math.max(available * 2, 1_000_000_000));
-    const sparseFile = path.join(source, "oversized-sparse.bin");
-    await writeFile(sparseFile, "");
-    await truncate(sparseFile, sparseSize);
+    await writeFile(path.join(source, "oversized.bin"), "larger than one byte");
     await expect(migrator.validate(source, destination, "copy")).rejects.toThrow(/enough free space/i);
   });
 
