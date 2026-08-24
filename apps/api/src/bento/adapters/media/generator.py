@@ -26,6 +26,23 @@ class LocalMediaGenerator:
             return await asyncio.to_thread(self._generate_video, asset, source_path)
         raise UnsupportedMediaTypeError(asset.metadata.mime_type)
 
+    async def cleanup(self, generated_files: tuple[GeneratedMediaFile, ...]) -> None:
+        await asyncio.to_thread(self._cleanup, generated_files)
+
+    def _cleanup(self, generated_files: tuple[GeneratedMediaFile, ...]) -> None:
+        parents: set[Path] = set()
+        for generated in generated_files:
+            try:
+                generated.path.unlink(missing_ok=True)
+            except OSError:
+                continue
+            parents.add(generated.path.parent)
+        for parent in parents:
+            try:
+                parent.rmdir()
+            except OSError:
+                pass
+
     def _generate_image(self, asset: Asset, source_path: Path) -> tuple[GeneratedMediaFile, ...]:
         try:
             from PIL import Image, ImageOps

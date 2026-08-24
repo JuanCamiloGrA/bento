@@ -39,6 +39,23 @@ class TelegramBlobStoreAdapter:
         self._sleep = sleep
         self._refs: dict[str, BlobRef] = {}
 
+    async def probe(self) -> bool:
+        try:
+            return await call_with_telegram_retries(
+                lambda: self._client.probe(
+                    (
+                        self._config.raw_chat_id,
+                        self._config.thumbs_chat_id,
+                        self._config.journal_chat_id,
+                    )
+                ),
+                retry_policy=self._retry_policy,
+                rate_limiter=self._rate_limiter,
+                sleep=self._sleep,
+            )
+        except TelegramApiError as exc:
+            raise StorageUnavailableError(StorageBackend.TELEGRAM.value) from exc
+
     async def store(
         self,
         source_ref: str,

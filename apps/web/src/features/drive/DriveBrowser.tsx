@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, FormEvent } from "react";
+import type { DragEvent, FormEvent, ReactNode } from "react";
 
 import type { DriveApi, DriveBreadcrumb } from "../../api/drive";
 import { driveApi } from "../../api/drive";
@@ -12,6 +12,7 @@ import { Menu } from "../../components/Menu";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { VirtualGrid } from "../../components/VirtualGrid";
 import { VirtualList } from "../../components/VirtualList";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../../components/ui/context-menu";
 import { cx } from "../../lib/cx";
 import { t } from "../../i18n/dictionary";
 import { entryFromItem, entryFromSearchItem, formatBytes, isIndexingState, isPartialFailureState } from "./driveModel";
@@ -391,14 +392,16 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
 
           {visibleEntries.length > 0 && layout === "grid" ? (
             <VirtualGrid
+              className="rounded-none border-0 bg-transparent"
+              gap={24}
               getKey={(entry) => `${entry.kind}-${entry.id}`}
               height={560}
               items={visibleEntries}
-              minColumnWidth={168}
+              minColumnWidth={176}
               renderItem={(entry) => (
                 <DriveGridCard api={api} entry={entry} onNavigate={navigate} onOpenAction={openAction} searchMode={showingSearch} />
               )}
-              rowHeight={216}
+              rowHeight={218}
             />
           ) : null}
 
@@ -555,62 +558,59 @@ type EntryCardProps = {
   searchMode: boolean;
 };
 
-function DriveGridCard({ api, entry, onNavigate, onOpenAction, searchMode }: EntryCardProps) {
+function DriveGridCard({ api, entry, onNavigate, onOpenAction }: EntryCardProps) {
   return (
-    <article className="grid h-full min-h-0 grid-rows-[88px_minmax(0,1fr)_auto] gap-2 rounded-app-card border border-app-border bg-app-surface p-2.5 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:shadow-sm group">
-      <button
-        aria-label={entry.name}
-        className="grid min-w-0 place-items-center overflow-hidden rounded-app-control bg-slate-50/75 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent cursor-pointer"
-        onClick={() => {
-          if (entry.kind === "folder") {
-            onNavigate(entry.id);
-          }
-        }}
-        type="button"
-      >
-        <FileTypeIcon
-          mimeType={entry.mimeType}
-          name={entry.name}
-          previewSrc={entry.thumbnailUrl}
-          type={entry.kind}
-        />
-      </button>
-      <div className="min-w-0">
-        <h2 className="truncate text-[13px] font-bold tracking-tight text-app-text transition-colors group-hover:text-app-accent">{entry.name}</h2>
-        <EntryMeta entry={entry} searchMode={searchMode} />
-      </div>
-      <EntryActions api={api} entry={entry} onOpenAction={onOpenAction} />
-    </article>
+    <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
+      <article className="group relative flex h-full min-h-0 flex-col">
+        <button
+          aria-label={`${t("drive.action.open")} ${entry.name}`}
+          className="flex min-h-0 min-w-0 flex-1 cursor-pointer flex-col text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+          onClick={() => openEntry({ api, entry, onNavigate, onOpenAction })}
+          type="button"
+        >
+          <div className="grid aspect-[4/3] w-full min-h-0 place-items-center overflow-hidden rounded-sm bg-slate-100/45">
+            <FileTypeIcon
+              mimeType={entry.mimeType}
+              name={entry.name}
+              previewSrc={entry.thumbnailUrl}
+              type={entry.kind}
+            />
+          </div>
+          <h2 className="mt-2 truncate px-1 text-center text-[13px] font-medium leading-5 tracking-tight text-app-text group-hover:text-app-accent">
+            {entry.name}
+          </h2>
+        </button>
+        <DriveEntryMenu api={api} compact entry={entry} onOpenAction={onOpenAction} />
+      </article>
+    </DriveContextMenu>
   );
 }
 
 function DriveListRow({ api, entry, onNavigate, onOpenAction, searchMode }: EntryCardProps) {
   return (
-    <article className="grid h-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-app-border bg-app-surface px-3 py-1.5 transition-colors duration-150 hover:bg-slate-50">
-      <button
-        aria-label={entry.name}
-        className="grid h-9 w-9 place-items-center rounded-app-control bg-slate-50/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent cursor-pointer"
-        onClick={() => {
-          if (entry.kind === "folder") {
-            onNavigate(entry.id);
-          }
-        }}
-        type="button"
-      >
-        <FileTypeIcon
-          mimeType={entry.mimeType}
-          name={entry.name}
-          previewSrc={entry.thumbnailUrl}
-          size="list"
-          type={entry.kind}
-        />
-      </button>
-      <div className="min-w-0">
-        <h2 className="truncate text-[13px] font-bold tracking-tight text-app-text">{entry.name}</h2>
-        <EntryMeta entry={entry} searchMode={searchMode} />
-      </div>
-      <EntryActions api={api} entry={entry} onOpenAction={onOpenAction} />
-    </article>
+    <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
+      <article className="group relative grid h-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-app-border bg-app-surface px-3 py-1.5 transition-colors duration-150 hover:bg-slate-50">
+        <button
+          aria-label={`${t("drive.action.open")} ${entry.name}`}
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-app-control bg-slate-50/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+          onClick={() => openEntry({ api, entry, onNavigate, onOpenAction })}
+          type="button"
+        >
+          <FileTypeIcon
+            mimeType={entry.mimeType}
+            name={entry.name}
+            previewSrc={entry.thumbnailUrl}
+            size="list"
+            type={entry.kind}
+          />
+        </button>
+        <div className="min-w-0 pr-8">
+          <h2 className="truncate text-[13px] font-bold tracking-tight text-app-text">{entry.name}</h2>
+          <EntryMeta entry={entry} searchMode={searchMode} />
+        </div>
+        <DriveEntryMenu api={api} compact entry={entry} onOpenAction={onOpenAction} />
+      </article>
+    </DriveContextMenu>
   );
 }
 
@@ -643,47 +643,133 @@ function isInlinePreviewable(entry: DriveEntry): boolean {
   return kind === "pdf" || kind === "text";
 }
 
-function EntryActions({ api, entry, onOpenAction }: Omit<EntryCardProps, "onNavigate" | "searchMode">) {
-  const items = [
+function isPreviewable(entry: DriveEntry): boolean {
+  if (entry.kind !== "asset") {
+    return false;
+  }
+
+  return ["image", "pdf", "text", "video"].includes(getFileTypeKind("asset", entry.name, entry.mimeType));
+}
+
+function openEntry({
+  api,
+  entry,
+  onNavigate,
+  onOpenAction,
+}: {
+  api: DriveApi;
+  entry: DriveEntry;
+  onNavigate: (folderId: string | null) => void;
+  onOpenAction: (action: PendingAction) => void;
+}) {
+  if (entry.kind === "folder") {
+    onNavigate(entry.id);
+  } else if (isPreviewable(entry)) {
+    onOpenAction({ entry, type: "preview" });
+  } else {
+    openInNewTab(api.downloadUrl(entry.id));
+  }
+}
+
+function openInNewTab(url: string) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+type DriveEntryAction = {
+  id: string;
+  label: string;
+  onSelect: () => void;
+};
+
+function getDriveEntryActions({
+  api,
+  entry,
+  onOpenAction,
+}: {
+  api: DriveApi;
+  entry: DriveEntry;
+  onOpenAction: (action: PendingAction) => void;
+}): DriveEntryAction[] {
+  return [
     { id: "rename", label: t("drive.action.rename"), onSelect: () => onOpenAction({ entry, type: "rename" }) },
     { id: "move", label: t("drive.action.move"), onSelect: () => onOpenAction({ entry, type: "move" }) },
     { id: "delete", label: t("drive.action.delete"), onSelect: () => onOpenAction({ entry, type: "delete" }) },
+    ...(entry.kind === "asset" && isPreviewable(entry)
+      ? [{ id: "preview", label: t("drive.action.preview"), onSelect: () => onOpenAction({ entry, type: "preview" }) }]
+      : []),
+    ...(entry.kind === "asset"
+      ? [{ id: "download", label: t("drive.action.download"), onSelect: () => openInNewTab(api.downloadUrl(entry.id)) }]
+      : []),
   ];
+}
+
+function DriveContextMenu({
+  api,
+  children,
+  entry,
+  onOpenAction,
+}: {
+  api: DriveApi;
+  children: ReactNode;
+  entry: DriveEntry;
+  onOpenAction: (action: PendingAction) => void;
+}) {
+  const items = getDriveEntryActions({ api, entry, onOpenAction });
 
   return (
-    <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-app-border/40 pt-1.5 transition-colors group-hover:border-slate-300">
-      {entry.kind === "asset" ? (
-        <div className="flex min-w-0 items-center gap-1.5">
-          {isInlinePreviewable(entry) ? (
-            <button
-              className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
-              onClick={() => onOpenAction({ entry, type: "preview" })}
-              type="button"
-            >
-              {t("drive.action.preview")}
-            </button>
-          ) : (
-            <a
-              className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
-              href={api.previewUrl(entry.id)}
-              target="_blank"
-            >
-              {t("drive.action.preview")}
-            </a>
-          )}
-          <a
-            className="truncate rounded-app-control border border-app-border bg-app-surface px-1.5 py-0.5 text-[11px] font-semibold text-app-accent transition-all duration-150 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
-            download
-            href={api.downloadUrl(entry.id)}
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent
+        aria-label={`${t("drive.action.menu")} ${entry.name}`}
+        className="min-w-48 border-app-border bg-app-surface p-1 text-app-text shadow-lg"
+      >
+        {items.map((item) => (
+          <ContextMenuItem
+            className="h-9 cursor-pointer rounded-app-control px-2.5 text-sm text-app-text hover:bg-slate-50 focus:bg-slate-50 focus:text-app-text"
+            key={item.id}
+            onSelect={item.onSelect}
           >
-            {t("drive.action.download")}
-          </a>
-        </div>
-      ) : (
-        <span className="text-[11px] font-medium text-app-text-muted/80">{t("drive.item.folder")}</span>
+            {item.label}
+          </ContextMenuItem>
+        ))}
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function DriveEntryMenu({
+  api,
+  compact = false,
+  entry,
+  onOpenAction,
+}: {
+  api: DriveApi;
+  compact?: boolean;
+  entry: DriveEntry;
+  onOpenAction: (action: PendingAction) => void;
+}) {
+  const items = getDriveEntryActions({ api, entry, onOpenAction });
+
+  return (
+    <div
+      className={cx(
+        compact
+          ? "absolute right-1 top-1 z-10 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 [&>div>button]:h-7 [&>div>button]:w-7 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:p-0 [&>div>button]:text-app-text-muted [&>div>button]:shadow-none [&>div>button]:hover:bg-slate-100/80 [&>div>button]:focus-visible:bg-slate-100"
+          : "shrink-0",
       )}
-      <Menu items={items} label={`${t("drive.action.menu")} ${entry.name}`} trigger={<span>...</span>} />
+    >
+      <Menu items={items} label={`${t("drive.action.menu")} ${entry.name}`} trigger={<MoreIcon />} />
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
   );
 }
 
@@ -703,6 +789,10 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
   }
 
   if (action.type === "preview" && action.entry.kind === "asset") {
+    if (getFileTypeKind("asset", action.entry.name, action.entry.mimeType) === "image") {
+      return <ImageViewerDialog api={api} entry={action.entry} onOpenChange={onOpenChange} />;
+    }
+
     if (isInlinePreviewable(action.entry)) {
       return <AssetPreviewDialog api={api} entry={action.entry} onOpenChange={onOpenChange} />;
     }
@@ -762,6 +852,69 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
         {error ? <p className="text-app-danger">{error}</p> : null}
       </form>
     </Dialog>
+  );
+}
+
+function ImageViewerDialog({
+  api,
+  entry,
+  onOpenChange,
+}: {
+  api: DriveApi;
+  entry: DriveEntry;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange(false);
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [onOpenChange]);
+
+  return (
+    <div
+      aria-labelledby="drive-image-viewer-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/92 p-4 backdrop-blur-sm sm:p-8"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onOpenChange(false);
+        }
+      }}
+      role="dialog"
+    >
+      <h2 className="sr-only" id="drive-image-viewer-title">
+        {entry.name}
+      </h2>
+      <button
+        aria-label={t("common.close")}
+        className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-2xl leading-none text-white transition-colors hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white sm:right-6 sm:top-6"
+        onClick={() => onOpenChange(false)}
+        ref={closeButtonRef}
+        type="button"
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+      <img
+        alt={entry.name}
+        className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] object-contain sm:max-h-[calc(100vh-4rem)] sm:max-w-[calc(100vw-4rem)]"
+        onClick={(event) => event.stopPropagation()}
+        src={api.previewUrl(entry.id)}
+      />
+    </div>
   );
 }
 

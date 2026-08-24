@@ -18,6 +18,9 @@ class EncryptedBlobStoreAdapter:
         self._delegate = delegate
         self._encryption = encryption
 
+    async def probe(self) -> bool:
+        return await self._delegate.probe()
+
     async def store(
         self,
         source_ref: str,

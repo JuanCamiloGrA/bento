@@ -38,11 +38,12 @@ export function FileTypeIcon({ className, mimeType, name, previewSrc, size = "gr
   const palette = palettes[kind];
   const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null);
   const showPreview = kind === "image" && Boolean(previewSrc) && previewSrc !== failedPreviewSrc;
+  const iconSize = showPreview && size === "grid" ? "h-full w-full" : size === "grid" ? "h-16 w-16" : "h-8 w-8";
 
   return (
     <span
       aria-hidden="true"
-      className={cx("inline-grid shrink-0 place-items-center", size === "grid" ? "h-16 w-16" : "h-8 w-8", className)}
+      className={cx("inline-grid min-h-0 min-w-0 place-items-center", iconSize, className)}
       data-file-type={kind}
     >
       {showPreview ? (

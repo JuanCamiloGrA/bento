@@ -35,6 +35,8 @@ class BlobSourceMaterializerPort(Protocol):
 class MediaGeneratorPort(Protocol):
     async def generate(self, asset: Asset, source_path: Path) -> tuple["GeneratedMediaFile", ...]: ...
 
+    async def cleanup(self, generated_files: tuple["GeneratedMediaFile", ...]) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedMediaFile:
@@ -84,46 +86,49 @@ class MediaProcessingService:
             generated_files = await self._generator.generate(asset, source_path)
         stored_refs: list[BlobRef] = []
         thumbnail_ready = asset.processing_state != ProcessingState.THUMBNAIL_PENDING
-        for generated in generated_files:
-            metadata = asset.metadata.__class__(
-                original_filename=generated.filename,
-                mime_type=generated.mime_type,
-                size_bytes=generated.size_bytes,
-                sha256=generated.sha256,
-                taken_at=asset.metadata.taken_at,
-                exif=asset.metadata.exif,
-            )
-            blob_ref = await self._blob_store.store(
-                str(generated.path),
-                asset_id=asset.id,
-                kind=generated.kind,
-                metadata=metadata,
-            )
-            if generated.kind == BlobKind.THUMBNAIL:
-                await self._thumbnails.add(
+        try:
+            for generated in generated_files:
+                metadata = asset.metadata.__class__(
+                    original_filename=generated.filename,
+                    mime_type=generated.mime_type,
+                    size_bytes=generated.size_bytes,
+                    sha256=generated.sha256,
+                    taken_at=asset.metadata.taken_at,
+                    exif=asset.metadata.exif,
+                )
+                blob_ref = await self._blob_store.store(
+                    str(generated.path),
                     asset_id=asset.id,
-                    blob_ref=blob_ref,
-                    width=generated.width,
-                    height=generated.height,
+                    kind=generated.kind,
+                    metadata=metadata,
                 )
-                await self._manifest.append(
-                    type=ManifestEventType.THUMBNAIL_CREATED,
-                    entity_type=ManifestEntityType.BLOB,
-                    entity_id=blob_ref.id,
-                    payload={"asset_id": asset.id, "width": generated.width, "height": generated.height},
-                )
-                if not thumbnail_ready:
-                    asset = asset.transition_to(ProcessingState.THUMBNAIL_READY, self._clock.now())
-                    await self._assets.save(asset)
-                    thumbnail_ready = True
-            elif generated.kind == BlobKind.PREVIEW:
-                await self._blob_refs.add(blob_ref)
-                await self._manifest.append(
-                    type=ManifestEventType.BLOB_STORED,
-                    entity_type=ManifestEntityType.BLOB,
-                    entity_id=blob_ref.id,
-                    payload={"asset_id": asset.id, "kind": blob_ref.kind.value},
-                )
-            stored_refs.append(blob_ref)
+                if generated.kind == BlobKind.THUMBNAIL:
+                    await self._thumbnails.add(
+                        asset_id=asset.id,
+                        blob_ref=blob_ref,
+                        width=generated.width,
+                        height=generated.height,
+                    )
+                    await self._manifest.append(
+                        type=ManifestEventType.THUMBNAIL_CREATED,
+                        entity_type=ManifestEntityType.BLOB,
+                        entity_id=blob_ref.id,
+                        payload={"asset_id": asset.id, "width": generated.width, "height": generated.height},
+                    )
+                    if not thumbnail_ready:
+                        asset = asset.transition_to(ProcessingState.THUMBNAIL_READY, self._clock.now())
+                        await self._assets.save(asset)
+                        thumbnail_ready = True
+                elif generated.kind == BlobKind.PREVIEW:
+                    await self._blob_refs.add(blob_ref)
+                    await self._manifest.append(
+                        type=ManifestEventType.BLOB_STORED,
+                        entity_type=ManifestEntityType.BLOB,
+                        entity_id=blob_ref.id,
+                        payload={"asset_id": asset.id, "kind": blob_ref.kind.value},
+                    )
+                stored_refs.append(blob_ref)
+        finally:
+            await self._generator.cleanup(generated_files)
 
         return tuple(stored_refs)

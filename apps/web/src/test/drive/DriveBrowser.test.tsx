@@ -34,6 +34,16 @@ const textAsset: DriveAsset = {
   mime_type: "text/markdown",
 };
 
+const imageAsset: DriveAsset = {
+  ...asset,
+  filename: "foto.jpg",
+  id: "asset_photo",
+  kind: "image",
+  mime_type: "image/jpeg",
+  processing_state: "indexed",
+  thumbnail_url: "/api/assets/asset_photo/thumbnail",
+};
+
 function createApi(overrides: Partial<DriveApi> = {}): DriveApi {
   return {
     createFolder: vi.fn(async ({ name, parentId }) => ({
@@ -80,7 +90,7 @@ describe("DriveBrowser", () => {
     expect(await screen.findAllByText("Documentos")).not.toHaveLength(0);
     expect(screen.getByRole("complementary", { name: "Árbol de archivos de Drive" })).toBeInTheDocument();
     expect(screen.getByText("factura.pdf")).toBeInTheDocument();
-    expect(screen.getByText("Indexando")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir factura.pdf" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: "Lista" }));
 
@@ -204,16 +214,25 @@ describe("DriveBrowser", () => {
     folderView.unmount();
   });
 
-  it("renders download and preview links for files", async () => {
+  it("exposes file actions in the contextual menu", async () => {
     const api = createApi();
     render(<DriveBrowser api={api} />);
     await screen.findByText("factura.pdf");
 
-    expect(screen.getByRole("button", { name: "Vista previa" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Descargar" })).toHaveAttribute(
-      "href",
-      "/api/assets/asset_invoice/download",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Acciones factura.pdf" }));
+    expect(screen.getByRole("menuitem", { name: "Vista previa" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();
+  });
+
+  it("opens the same file actions with the right mouse button", async () => {
+    const api = createApi();
+    render(<DriveBrowser api={api} />);
+    await screen.findByText("factura.pdf");
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Abrir factura.pdf" }));
+
+    expect(await screen.findByRole("menuitem", { name: "Vista previa" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();
   });
 
   it("loads Markdown and plain text into an inline preview", async () => {
@@ -235,7 +254,7 @@ describe("DriveBrowser", () => {
     try {
       render(<DriveBrowser api={api} />);
       await screen.findByText("README.md");
-      fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+      fireEvent.click(screen.getByRole("button", { name: "Abrir README.md" }));
 
       expect(await screen.findByText(/# Bento/)).toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledWith(
@@ -263,7 +282,7 @@ describe("DriveBrowser", () => {
       const api = createApi();
       render(<DriveBrowser api={api} />);
       await screen.findByText("factura.pdf");
-      fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+      fireEvent.click(screen.getByRole("button", { name: "Abrir factura.pdf" }));
 
       expect(await screen.findByTitle("factura.pdf · Vista previa")).toHaveAttribute("src", "blob:pdf-preview");
       expect(fetchMock).toHaveBeenCalledWith(
@@ -273,6 +292,30 @@ describe("DriveBrowser", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("opens images in a large centered viewer when the card is tapped", async () => {
+    const api = createApi({
+      listItems: vi.fn(async (): Promise<DriveItemsResponse> => ({
+        breadcrumbs: [],
+        items: [{ asset: imageAsset, type: "asset" }],
+        next_cursor: null,
+      })),
+    });
+
+    const view = render(<DriveBrowser api={api} />);
+    await screen.findByText("foto.jpg");
+    expect(view.container.querySelector('[data-file-type="image"] img')).toHaveClass("h-full", "w-full", "object-cover");
+    fireEvent.click(screen.getByRole("button", { name: "Abrir foto.jpg" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "foto.jpg" })).toHaveAttribute(
+      "src",
+      "/api/assets/asset_photo/preview",
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("opens the context menu with the keyboard and returns focus on escape", async () => {
@@ -320,7 +363,7 @@ describe("DriveBrowser", () => {
     fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
 
     await waitFor(() => expect(api.search).toHaveBeenCalledWith({ folderId: "folder_docs", query: "factura" }));
-    expect(await screen.findByText("nombre de archivo")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Abrir factura.pdf" })).toBeInTheDocument();
   });
 });
 

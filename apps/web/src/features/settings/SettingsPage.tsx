@@ -1,5 +1,10 @@
+import { useState } from "react";
+import { Cloud, CloudOff, HardDriveDownload } from "lucide-react";
+
+import { Button } from "../../components/Button";
+import { Dialog } from "../../components/Dialog";
 import { ErrorState, LoadingState } from "../../components/States";
-import type { PublicSettings, ProviderState, WorkerStatus } from "../../api/settings";
+import type { PublicSettings, ProviderState, StorageReclaimResult, WorkerStatus } from "../../api/settings";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
@@ -7,7 +12,11 @@ import { cx } from "../../lib/cx";
 export type SettingsPageProps = {
   error?: Error | null;
   isLoading?: boolean;
+  isReclaiming?: boolean;
+  onReclaim?: () => Promise<void> | void;
   onRetry?: () => void;
+  reclaimError?: Error | null;
+  reclaimResult?: StorageReclaimResult | null;
   settings?: PublicSettings | null;
 };
 
@@ -40,8 +49,24 @@ const workerLabels: Record<string, MessageKey> = {
   stopped: "settings.worker.stopped",
 };
 
-export function SettingsPage({ error, isLoading = false, onRetry, settings }: SettingsPageProps) {
+export function SettingsPage({
+  error,
+  isLoading = false,
+  isReclaiming = false,
+  onReclaim,
+  onRetry,
+  reclaimError,
+  reclaimResult,
+  settings,
+}: SettingsPageProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const items = settings ? settingsItems(settings) : [];
+  const maintenance = settings?.storage_maintenance;
+
+  async function confirmReclaim() {
+    setConfirmOpen(false);
+    await onReclaim?.();
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-5">
@@ -54,18 +79,93 @@ export function SettingsPage({ error, isLoading = false, onRetry, settings }: Se
       {isLoading ? <LoadingState /> : null}
 
       {!isLoading && settings ? (
-        <dl className="grid gap-4 md:grid-cols-2">
-          {items.map((item) => (
-            <div className={cx("rounded-app-card border p-5 shadow-2xs hover:shadow-xs transition-all duration-300", toneClasses[item.tone])} key={item.label}>
-              <dt className="text-[10px] font-bold uppercase tracking-wider text-app-text-muted/75">{item.label}</dt>
-              <dd className="mt-2 text-lg font-black tracking-tight">{item.value}</dd>
-              {item.detail ? <p className="mt-1.5 text-xs text-app-text-muted/80 font-medium">{item.detail}</p> : null}
-            </div>
-          ))}
-        </dl>
+        <>
+          {maintenance ? (
+            <section className="overflow-hidden rounded-app-card border border-app-border bg-app-surface shadow-xs" aria-labelledby="cloud-storage-title">
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 gap-4">
+                  <div className={cx("grid size-11 shrink-0 place-items-center rounded-full", maintenance.connection_state === "connected" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                    {maintenance.connection_state === "connected" ? <Cloud aria-hidden="true" size={22} /> : <CloudOff aria-hidden="true" size={22} />}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-app-text" id="cloud-storage-title">{t("settings.space.title")}</h2>
+                    <p className="mt-1 text-sm text-app-text-muted">{maintenanceDescription(settings)}</p>
+                    <p className="mt-2 text-xs font-semibold text-app-text-muted">
+                      {t("settings.space.reclaimable")}: {formatBytes(maintenance.reclaimable_bytes)} · {maintenance.reclaimable_files} {t("settings.space.files")}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  className="shrink-0"
+                  disabled={!maintenance.can_reclaim || isReclaiming}
+                  onClick={() => setConfirmOpen(true)}
+                  variant="primary"
+                >
+                  <HardDriveDownload aria-hidden="true" size={17} />
+                  {isReclaiming ? t("settings.space.reclaiming") : t("settings.space.action")}
+                </Button>
+              </div>
+              <div className="border-t border-app-border bg-app-surface-muted/50 px-5 py-3 text-xs text-app-text-muted">
+                {t("settings.space.localMetadata")}
+              </div>
+            </section>
+          ) : null}
+
+          {reclaimResult ? (
+            <p className="rounded-app-control border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">
+              {t("settings.space.success")} {formatBytes(reclaimResult.freed_bytes)}.
+            </p>
+          ) : null}
+          {reclaimError ? (
+            <p className="rounded-app-control border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-750" role="alert">
+              {t("settings.space.error")}
+            </p>
+          ) : null}
+
+          <dl className="grid gap-4 md:grid-cols-2">
+            {items.map((item) => (
+              <div className={cx("rounded-app-card border p-5 shadow-2xs hover:shadow-xs transition-all duration-300", toneClasses[item.tone])} key={item.label}>
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-app-text-muted/75">{item.label}</dt>
+                <dd className="mt-2 text-lg font-black tracking-tight">{item.value}</dd>
+                {item.detail ? <p className="mt-1.5 text-xs text-app-text-muted/80 font-medium">{item.detail}</p> : null}
+              </div>
+            ))}
+          </dl>
+        </>
       ) : null}
+
+      <Dialog
+        actions={
+          <>
+            <Button onClick={() => setConfirmOpen(false)}>{t("common.close")}</Button>
+            <Button onClick={() => void confirmReclaim()} variant="primary">{t("settings.space.confirm")}</Button>
+          </>
+        }
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        title={t("settings.space.dialogTitle")}
+      >
+        <p>{t("settings.space.dialogBody")}</p>
+      </Dialog>
     </div>
   );
+}
+
+function maintenanceDescription(settings: PublicSettings): string {
+  const maintenance = settings.storage_maintenance;
+  if (!maintenance) return "";
+  if (maintenance.connection_state === "connected" && maintenance.fully_remote) return t("settings.space.connected");
+  if (maintenance.local_blob_count > 0) return t("settings.space.localBlobs");
+  if (maintenance.connection_state === "unavailable") return t("settings.space.unavailable");
+  return t("settings.space.notConfigured");
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length);
+  const value = bytes / 1024 ** exponent;
+  return `${new Intl.NumberFormat("es", { maximumFractionDigits: value >= 10 ? 1 : 2 }).format(value)} ${units[exponent - 1]}`;
 }
 
 export function settingsItems(settings: PublicSettings): StatusItem[] {

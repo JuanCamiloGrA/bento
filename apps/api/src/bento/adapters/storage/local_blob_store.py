@@ -16,6 +16,10 @@ class LocalBlobStoreAdapter:
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
 
+    async def probe(self) -> bool:
+        await asyncio.to_thread(self._root_dir.mkdir, parents=True, exist_ok=True)
+        return True
+
     async def store(
         self,
         source_ref: str,

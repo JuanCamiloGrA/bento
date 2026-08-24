@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, UIEvent } from "react";
 
+import { cx } from "../lib/cx";
+
 export type VirtualGridProps<T> = {
+  className?: string;
   gap?: number;
   getKey: (item: T, index: number) => string;
   height?: number;
@@ -13,6 +16,7 @@ export type VirtualGridProps<T> = {
 };
 
 export function VirtualGrid<T>({
+  className,
   gap = 12,
   getKey,
   height = 420,
@@ -62,7 +66,7 @@ export function VirtualGrid<T>({
 
   return (
     <div
-      className="relative overflow-y-auto rounded-app-card border border-app-border bg-app-surface"
+      className={cx("relative overflow-y-auto rounded-app-card border border-app-border bg-app-surface", className)}
       onScroll={onScroll}
       ref={containerRef}
       role="grid"

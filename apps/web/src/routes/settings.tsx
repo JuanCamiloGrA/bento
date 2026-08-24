@@ -8,7 +8,11 @@ export function SettingsRoute() {
     <SettingsPage
       error={settings.error}
       isLoading={settings.isLoading}
+      isReclaiming={settings.isReclaiming}
+      onReclaim={() => settings.reclaim()}
       onRetry={() => void settings.refresh()}
+      reclaimError={settings.reclaimError}
+      reclaimResult={settings.reclaimResult}
       settings={settings.settings}
     />
   );

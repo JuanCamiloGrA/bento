@@ -58,6 +58,17 @@ def test_fake_telegram_client_put_get_download_exists_and_delete(tmp_path: Path)
     asyncio.run(scenario())
 
 
+def test_probe_verifies_bot_and_configured_channels() -> None:
+    async def scenario() -> None:
+        client = FakeTelegramClient(download_content=b"")
+        store = TelegramBlobStoreAdapter(config=_config(), client=client)
+
+        assert await store.probe() is True
+        assert client.probed_chat_ids == [("-100raw", "-100thumbs", "-100journal")]
+
+    asyncio.run(scenario())
+
+
 def test_retry_and_rate_limit_behavior_with_fake_failures(tmp_path: Path) -> None:
     async def scenario() -> None:
         source = tmp_path / "source.txt"
@@ -191,6 +202,11 @@ class FakeTelegramClient:
     send_attempts: int = 0
     downloaded_file_paths: list[str] = field(default_factory=list)
     deleted_messages: list[tuple[str, str]] = field(default_factory=list)
+    probed_chat_ids: list[tuple[str, ...]] = field(default_factory=list)
+
+    async def probe(self, chat_ids: tuple[str, ...]) -> bool:
+        self.probed_chat_ids.append(chat_ids)
+        return True
 
     async def send_document(
         self,

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { SettingsPage } from "../../features/settings/SettingsPage";
 
@@ -31,6 +31,56 @@ describe("SettingsPage", () => {
     expect(screen.getByText("En ejecucion")).toBeInTheDocument();
     expect(screen.getByText("cache, uploads")).toBeInTheDocument();
     expect(screen.queryByText("D:\\secret\\cache")).not.toBeInTheDocument();
+  });
+
+  it("only offers cache reclamation after Telegram and remote storage are verified", () => {
+    const onReclaim = vi.fn();
+    render(
+      <SettingsPage
+        onReclaim={onReclaim}
+        settings={{
+          storage_backend: "telegram",
+          storage_maintenance: {
+            can_reclaim: true,
+            connection_state: "connected",
+            fully_remote: true,
+            local_blob_count: 0,
+            reclaimable_bytes: 1536,
+            reclaimable_files: 3,
+            telegram_blob_count: 10,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/Telegram está conectado/)).toBeInTheDocument();
+    expect(screen.getByText(/1,5 KB/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Liberar espacio" }));
+    expect(screen.getByRole("dialog", { name: "¿Liberar el espacio local de Bento?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Liberar ahora" }));
+    expect(onReclaim).toHaveBeenCalledOnce();
+  });
+
+  it("blocks reclamation when Telegram is unavailable", () => {
+    render(
+      <SettingsPage
+        settings={{
+          storage_backend: "telegram",
+          storage_maintenance: {
+            can_reclaim: false,
+            connection_state: "unavailable",
+            fully_remote: true,
+            local_blob_count: 0,
+            reclaimable_bytes: 100,
+            reclaimable_files: 1,
+            telegram_blob_count: 1,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Liberar espacio" })).toBeDisabled();
+    expect(screen.getByText(/No se pudo verificar la conexión/)).toBeInTheDocument();
   });
 
   it("renders foundation settings shape without optional fields", () => {

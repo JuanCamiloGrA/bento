@@ -9,6 +9,8 @@ from bento.domain.storage import BlobKind, BlobRef
 
 
 class BlobStorePort(Protocol):
+    async def probe(self) -> bool: ...
+
     async def store(
         self,
         source_ref: str,

@@ -25,6 +25,7 @@ from bento.application.drive import (
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, UploadedAssetFile
 from bento.application.jobs import JobsUseCases, ListJobsQuery
 from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, PhotosUseCases, TimelineQuery
+from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
 from bento.domain.drive import DriveItem, Folder
 from bento.domain.errors import DomainError, UnsupportedMediaTypeError, ValidationFailedError
@@ -53,6 +54,16 @@ class VersionResponse(BaseModel):
     environment: str
 
 
+class StorageMaintenanceStatusResponse(BaseModel):
+    connection_state: str
+    can_reclaim: bool
+    fully_remote: bool
+    reclaimable_bytes: int
+    reclaimable_files: int
+    local_blob_count: int
+    telegram_blob_count: int
+
+
 class SettingsResponse(BaseModel):
     storage_backend: str
     worker_concurrency: int
@@ -65,6 +76,15 @@ class SettingsResponse(BaseModel):
     model_available: bool
     worker_status: str
     data_paths: dict[str, str]
+    storage_maintenance: StorageMaintenanceStatusResponse
+
+
+class StorageReclaimResponse(BaseModel):
+    freed_bytes: int
+    deleted_files: int
+    retained_bytes: int
+    retained_files: int
+    skipped_recent_files: int
 
 
 class AssetResponse(BaseModel):
@@ -211,6 +231,11 @@ class ProductRouteDependencies:
     photos: PhotosUseCases
 
 
+@dataclass(frozen=True, slots=True)
+class StorageMaintenanceDependencies:
+    service: StorageMaintenanceService
+
+
 def _settings(request: Request) -> Settings:
     return request.app.state.settings
 
@@ -243,6 +268,7 @@ async def public_settings(request: Request) -> dict[str, Any]:
     ocr_enabled = settings.ocr_provider != "disabled"
     embeddings_enabled = settings.embeddings_provider != "disabled"
     model_available = model_path.is_file()
+    maintenance = await _storage_maintenance_dependencies(request).service.status()
     return {
         "storage_backend": settings.storage_backend,
         "worker_concurrency": settings.worker_concurrency,
@@ -262,7 +288,23 @@ async def public_settings(request: Request) -> dict[str, Any]:
             "models": str(data_dir / "models"),
             "uploads": str(data_dir / "uploads"),
         },
+        "storage_maintenance": _storage_maintenance_status_response(maintenance),
     }
+
+
+@router.post("/admin/storage/reclaim", response_model=StorageReclaimResponse)
+async def reclaim_storage(request: Request) -> StorageReclaimResponse | JSONResponse:
+    try:
+        result = await _storage_maintenance_dependencies(request).service.reclaim()
+        return StorageReclaimResponse(
+            freed_bytes=result.freed_bytes,
+            deleted_files=result.deleted_files,
+            retained_bytes=result.retained_bytes,
+            retained_files=result.retained_files,
+            skipped_recent_files=result.skipped_recent_files,
+        )
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
 
 
 @router.get("/drive/items", response_model=DriveItemsResponse)
@@ -618,6 +660,37 @@ def _product_dependencies(request: Request) -> ProductRouteDependencies:
     return dependencies
 
 
+def _storage_maintenance_dependencies(request: Request) -> StorageMaintenanceDependencies:
+    cached = getattr(request.app.state, "storage_maintenance_dependencies", None)
+    if cached is not None:
+        return cached
+
+    from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
+    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+    from bento.infrastructure.storage.factory import create_blob_store
+
+    settings = _settings(request)
+    data_dir = _data_dir(settings)
+    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    blob_store = None
+    if settings.storage_backend == StorageBackend.TELEGRAM.value and settings.telegram_configured:
+        try:
+            blob_store = create_blob_store(settings)
+        except DomainError:
+            blob_store = None
+    dependencies = StorageMaintenanceDependencies(
+        service=StorageMaintenanceService(
+            storage_backend=StorageBackend(settings.storage_backend),
+            telegram_configured=settings.telegram_configured,
+            blob_store=blob_store,
+            inventory=SQLiteStorageInventory(session_factory),
+            cache=LocalEphemeralCache(data_dir),
+        )
+    )
+    request.app.state.storage_maintenance_dependencies = dependencies
+    return dependencies
+
+
 async def _save_upload_file(upload: UploadFile, upload_dir: Path) -> Path:
     upload_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(prefix="upload-", suffix=".tmp", dir=upload_dir, delete=False) as handle:
@@ -650,6 +723,18 @@ def _embeddings_state(settings: Settings, model_available: bool) -> str:
     return "ready" if model_available else "pending"
 
 
+def _storage_maintenance_status_response(status: Any) -> StorageMaintenanceStatusResponse:
+    return StorageMaintenanceStatusResponse(
+        connection_state=status.connection_state,
+        can_reclaim=status.can_reclaim,
+        fully_remote=status.fully_remote,
+        reclaimable_bytes=status.reclaimable_bytes,
+        reclaimable_files=status.reclaimable_files,
+        local_blob_count=status.local_blob_count,
+        telegram_blob_count=status.telegram_blob_count,
+    )
+
+
 async def _file_response(
     dependencies: AssetRouteDependencies,
     blob_ref: BlobRef,
@@ -658,18 +743,20 @@ async def _file_response(
     filename: str | None = None,
 ) -> FileResponse:
     cleanup = None
-    if blob_ref.encryption.mode != EncryptionMode.NONE:
+    if blob_ref.backend == StorageBackend.LOCAL and blob_ref.encryption.mode == EncryptionMode.NONE:
+        path = dependencies.resolver.resolve(blob_ref)
+    elif blob_ref.backend in {StorageBackend.LOCAL, StorageBackend.TELEGRAM}:
         path = await dependencies.blob_store.download(blob_ref, _download_cache_path(dependencies.data_dir, blob_ref))
         cleanup = BackgroundTask(path.unlink, missing_ok=True)
-    elif blob_ref.backend == StorageBackend.LOCAL:
-        path = dependencies.resolver.resolve(blob_ref)
-    elif blob_ref.backend == StorageBackend.TELEGRAM:
-        path = await dependencies.blob_store.download(blob_ref, _download_cache_path(dependencies.data_dir, blob_ref))
     else:
         from bento.domain.errors import StorageUnavailableError
 
         raise StorageUnavailableError(blob_ref.backend.value)
-    return FileResponse(path, media_type=media_type, filename=filename, background=cleanup)
+    response = FileResponse(path, media_type=media_type, filename=filename, background=cleanup)
+    response.headers["Cache-Control"] = (
+        "private, max-age=3600" if blob_ref.kind in {BlobKind.THUMBNAIL, BlobKind.PREVIEW} else "no-store"
+    )
+    return response
 
 
 def _download_cache_path(data_dir: Path, blob_ref: BlobRef) -> Path:

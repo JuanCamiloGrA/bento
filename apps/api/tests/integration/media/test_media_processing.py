@@ -42,6 +42,7 @@ def test_thumbnail_job_creates_blob_thumbnail_records_and_files(tmp_path: Path) 
         assert len(stored) == 2
         assert {blob.kind for blob in stored} == {BlobKind.THUMBNAIL, BlobKind.PREVIEW}
         assert (tmp_path / "uploads" / stored[0].object_key).is_file()
+        assert not (tmp_path / "generated" / asset.id).exists()
         assert (await assets.get(asset.id)).processing_state == ProcessingState.THUMBNAIL_READY
         with session_scope(factory) as session:
             assert session.scalar(select(func.count()).select_from(BlobRefModel)) == 3
@@ -226,6 +227,12 @@ class FakeMediaGenerator:
             _generated(thumb, BlobKind.THUMBNAIL, f"{asset.id}-thumb.jpg"),
             _generated(preview, BlobKind.PREVIEW, f"{asset.id}-preview.jpg"),
         )
+
+    async def cleanup(self, generated_files: tuple[GeneratedMediaFile, ...]) -> None:
+        for generated in generated_files:
+            generated.path.unlink(missing_ok=True)
+        for parent in {generated.path.parent for generated in generated_files}:
+            parent.rmdir()
 
 
 class RecordingDownloadStore:

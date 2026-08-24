@@ -40,6 +40,8 @@ class TelegramSentMessage:
 
 
 class TelegramApiClient(Protocol):
+    async def probe(self, chat_ids: tuple[str, ...]) -> bool: ...
+
     async def send_document(
         self,
         chat_id: str,
@@ -86,6 +88,12 @@ class StdlibTelegramBotApiClient:
         self._base_url = config.normalized_bot_api_url
         self._bot_token = config.bot_token
         self._timeout = config.request_timeout_seconds
+
+    async def probe(self, chat_ids: tuple[str, ...]) -> bool:
+        await asyncio.to_thread(self._post_form, "getMe", {})
+        for chat_id in dict.fromkeys(chat_ids):
+            await asyncio.to_thread(self._post_form, "getChat", {"chat_id": chat_id})
+        return True
 
     async def send_document(
         self,
