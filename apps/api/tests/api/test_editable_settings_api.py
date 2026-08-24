@@ -15,13 +15,26 @@ def _client(tmp_path) -> TestClient:
     database_dir = data_dir / "db"
     database_dir.mkdir(parents=True)
     repository = SQLiteSettingsRepository(migrated_session_factory(database_dir), SystemClock())
-    app = create_app(Settings(data_dir=str(data_dir), runtime_mode="desktop"))
+    desktop_environ = {
+        "BENTO_DESKTOP_API_TOKEN": "test-token-that-is-at-least-32-characters",
+        "BENTO_DESKTOP_ORIGIN": "bento://app",
+    }
+    app = create_app(
+        Settings(data_dir=str(data_dir), runtime_mode="desktop"),
+        desktop_environ=desktop_environ,
+    )
     app.state.editable_settings_service = EditableSettingsService(
         repository=repository,
         environ={},
         runtime_mode="desktop",
     )
-    return TestClient(app)
+    return TestClient(
+        app,
+        headers={
+            "Authorization": f"Bearer {desktop_environ['BENTO_DESKTOP_API_TOKEN']}",
+            "Origin": desktop_environ["BENTO_DESKTOP_ORIGIN"],
+        },
+    )
 
 
 def test_settings_contract_supports_schema_validation_apply_and_conflict(tmp_path) -> None:
