@@ -35,6 +35,9 @@
     "verify:artifacts": "node scripts/verify-artifacts.mjs",
     "release:stage": "node scripts/stage-artifacts.mjs",
     "release:validate-tag": "node scripts/validate-release-tag.mjs",
+    "release:bump": "node scripts/bump-version.mjs",
+    "release:collect": "node scripts/collect-release-assets.mjs",
+    "release:manifest": "node scripts/generate-update-manifest.mjs",
     "sbom": "node scripts/generate-sbom.mjs",
     "checksums": "node scripts/checksums.mjs ../../dist/release"
   },

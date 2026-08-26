@@ -9,6 +9,11 @@ export const IPC_CHANNELS = {
   settingsProgress: "bento:settings-progress",
   lifecycleStatus: "bento:lifecycle-status",
   lifecycleChanged: "bento:lifecycle-changed",
+  updatesState: "bento:updates-state",
+  updatesCheck: "bento:updates-check",
+  updatesDownload: "bento:updates-download",
+  updatesInstall: "bento:updates-install",
+  updatesChanged: "bento:updates-changed",
 } as const;
 
 export type ApplyPhase =
@@ -96,6 +101,43 @@ export interface ProbeResult {
   code?: string;
 }
 
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "installing"
+  | "error";
+
+export type UpdateInstallMode = "automatic" | "manual" | "unsupported";
+
+export interface UpdateProgress {
+  percent: number;
+  transferredBytes: number;
+  totalBytes: number;
+  bytesPerSecond?: number;
+}
+
+export interface UpdateState {
+  status: UpdateStatus;
+  installMode: UpdateInstallMode;
+  currentVersion: string;
+  availableVersion?: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+  releaseUrl?: string;
+  progress?: UpdateProgress;
+  error?: { code: string; message?: string };
+}
+
+export interface UpdateInstallResult {
+  action: "restarting" | "manual";
+  packageManager?: string;
+}
+
 export interface BentoDesktopBridge {
   platform(): Promise<PlatformMetadata>;
   pickDirectory(request?: DirectoryPickerRequest): Promise<PickerResult>;
@@ -108,5 +150,12 @@ export interface BentoDesktopBridge {
   lifecycle: {
     status(): Promise<LifecycleStatus>;
     onStatus(listener: (status: LifecycleStatus) => void): () => void;
+  };
+  updates: {
+    getState(): Promise<UpdateState>;
+    check(): Promise<UpdateState>;
+    download(): Promise<UpdateState>;
+    install(): Promise<UpdateInstallResult>;
+    onState(listener: (state: UpdateState) => void): () => void;
   };
 }

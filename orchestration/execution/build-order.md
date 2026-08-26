@@ -168,4 +168,6 @@ Exit criteria:
 
 - Native CI builds and smoke tests pass on Windows, macOS, and Linux.
 - Signing/notarization, checksums, SBOM, upgrade/data-retention, crash recovery, and release documentation are complete.
+- GitHub Flow uses `main` plus short-lived feature/fix/version PRs, stable SemVer tags, serialized releases, and exact tag/package/commit gates.
+- All four native matrices finish before immutable per-target updater manifests, flattened assets, checksums, SBOM, and provenance are published.
 - Docker/headless delivery and all prior critical journeys remain green.

@@ -7,6 +7,8 @@ import {
   ProbeResult,
   ProgressEvent,
   SettingsApplyResult,
+  UpdateInstallResult,
+  UpdateState,
 } from "../shared/contracts";
 import {
   validateDirectoryPicker,
@@ -23,6 +25,12 @@ export interface IpcDependencies {
   lifecycleStatus: () => LifecycleStatus;
   applySettings: (request: ReturnType<typeof validateSettingsApply>, progress: (event: ProgressEvent) => void) => Promise<SettingsApplyResult>;
   runProbe: (request: ReturnType<typeof validateProbe>) => Promise<ProbeResult>;
+  updates: {
+    state: UpdateState;
+    check(): Promise<UpdateState>;
+    download(): Promise<UpdateState>;
+    install(): Promise<UpdateInstallResult>;
+  };
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
@@ -71,6 +79,10 @@ export function registerIpcHandlers(dependencies: IpcDependencies): () => void {
     });
   });
   handle(IPC_CHANNELS.settingsProbe, (_event, payload) => dependencies.runProbe(validateProbe(payload)));
+  handle(IPC_CHANNELS.updatesState, (_event, payload) => { assertNoPayload(payload); return dependencies.updates.state; });
+  handle(IPC_CHANNELS.updatesCheck, (_event, payload) => { assertNoPayload(payload); return dependencies.updates.check(); });
+  handle(IPC_CHANNELS.updatesDownload, (_event, payload) => { assertNoPayload(payload); return dependencies.updates.download(); });
+  handle(IPC_CHANNELS.updatesInstall, (_event, payload) => { assertNoPayload(payload); return dependencies.updates.install(); });
 
   return () => {
     for (const channel of [
@@ -80,8 +92,16 @@ export function registerIpcHandlers(dependencies: IpcDependencies): () => void {
       IPC_CHANNELS.pickFile,
       IPC_CHANNELS.settingsApply,
       IPC_CHANNELS.settingsProbe,
+      IPC_CHANNELS.updatesState,
+      IPC_CHANNELS.updatesCheck,
+      IPC_CHANNELS.updatesDownload,
+      IPC_CHANNELS.updatesInstall,
     ]) dependencies.ipcMain.removeHandler(channel);
   };
+}
+
+function assertNoPayload(payload: unknown): void {
+  if (payload !== undefined) throw new TypeError("This IPC command does not accept a payload");
 }
 
 export { IPC_CHANNELS, BENTO_ORIGIN };

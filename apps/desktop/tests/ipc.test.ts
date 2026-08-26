@@ -29,6 +29,12 @@ function setup() {
     lifecycleStatus: vi.fn(() => ({ state: "ready" as const, recoveryMode: false })),
     applySettings: vi.fn(async () => ({ ok: true, revision: 2 })),
     runProbe: vi.fn(async () => ({ status: "ok" as const })),
+    updates: {
+      state: { status: "idle" as const, installMode: "manual" as const, currentVersion: "0.1.0" },
+      check: vi.fn(async () => ({ status: "not-available" as const, installMode: "manual" as const, currentVersion: "0.1.0" })),
+      download: vi.fn(async () => ({ status: "downloaded" as const, installMode: "manual" as const, currentVersion: "0.1.0" })),
+      install: vi.fn(async () => ({ action: "manual" as const })),
+    },
   };
   const dispose = registerIpcHandlers(dependencies);
   const trustedEvent = {
@@ -51,10 +57,14 @@ describe("main IPC handlers", () => {
         IPC_CHANNELS.pickFile,
         IPC_CHANNELS.settingsApply,
         IPC_CHANNELS.settingsProbe,
+        IPC_CHANNELS.updatesState,
+        IPC_CHANNELS.updatesCheck,
+        IPC_CHANNELS.updatesDownload,
+        IPC_CHANNELS.updatesInstall,
       ].sort(),
     );
     dispose();
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(6);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(10);
     expect(handlers.size).toBe(0);
   });
 
@@ -112,5 +122,14 @@ describe("main IPC handlers", () => {
     });
     await expect(handler(trustedEvent, { kind: "shell", command: "whoami" })).rejects.toThrow(TypeError);
     expect(dependencies.runProbe).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates update senders and rejects command-like payloads", async () => {
+    const { dependencies, handlers, trustedEvent } = setup();
+    const check = handlers.get(IPC_CHANNELS.updatesCheck)!;
+    await expect(check(trustedEvent)).resolves.toMatchObject({ status: "not-available" });
+    await expect(check(trustedEvent, { url: "https://attacker.example", command: "download" })).rejects.toThrow(TypeError);
+    await expect(check({ senderFrame: { url: "https://attacker.example" }, sender: { getURL: () => "https://attacker.example" } })).rejects.toThrow(/Untrusted/u);
+    expect(dependencies.updates.check).toHaveBeenCalledTimes(1);
   });
 });

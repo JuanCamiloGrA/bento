@@ -28,6 +28,31 @@ export type ApplyProgress = {
   status: "failed" | "ok" | "started";
 };
 
+export type UpdateProgress = {
+  bytesPerSecond?: number;
+  percent: number;
+  totalBytes: number;
+  transferredBytes: number;
+};
+
+export type UpdateError = {
+  code: string;
+  message?: string;
+};
+
+export type UpdateState = {
+  availableVersion?: string;
+  currentVersion: string;
+  error?: UpdateError;
+  installMode: "automatic" | "manual" | "unsupported";
+  progress?: UpdateProgress;
+  releaseDate?: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  releaseUrl?: string;
+  status: "available" | "checking" | "downloaded" | "downloading" | "error" | "idle" | "installing" | "not-available";
+};
+
 export type BentoDesktopBridge = {
   lifecycle: {
     onStatus(listener: (status: { recoveryMode: boolean; state: string }) => void): () => void;
@@ -40,6 +65,13 @@ export type BentoDesktopBridge = {
     apply(input: { dataMigration?: "copy" | "use-empty"; revision: number; runProbes?: boolean; secrets: Record<string, SecretOperation>; values: Record<string, unknown> }): Promise<DesktopApplyResult>;
     onProgress(listener: (event: ApplyProgress) => void): () => void;
     probe(input: { kind: "ffmpeg" | "model-file" | "ocr" | "telegram" | "writable-directory"; path?: string; secrets?: Record<string, string> }): Promise<{ code?: string; status: "failed" | "ok" }>;
+  };
+  updates?: {
+    check(): Promise<UpdateState>;
+    download(): Promise<UpdateState>;
+    getState(): Promise<UpdateState>;
+    install(): Promise<{ action: "manual" | "restarting"; packageManager?: string }>;
+    onState(listener: (state: UpdateState) => void): () => void;
   };
 };
 

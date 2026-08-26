@@ -1,6 +1,6 @@
 import { appendFile, mkdir, rename, stat } from "node:fs/promises";
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, protocol, safeStorage } from "electron";
+import { app, autoUpdater, BrowserWindow, ipcMain, protocol, safeStorage, shell } from "electron";
 import { BootstrapStore } from "./bootstrap";
 import { registerIpcHandlers } from "./ipc";
 import { registerBentoProtocol } from "./protocol";
@@ -9,6 +9,7 @@ import { SecureSecretStore } from "./secrets";
 import { SettingsTransaction } from "./settings-transaction";
 import { resolveSidecarCommand, SidecarSupervisor } from "./sidecars";
 import { createMainWindow, lockDownSession } from "./window";
+import { prepareForUpdateInstall, UpdateController } from "./updater";
 import { BENTO_ORIGIN, IPC_CHANNELS, PlatformMetadata } from "../shared/contracts";
 
 protocol.registerSchemesAsPrivileged([{
@@ -37,7 +38,6 @@ if (!primaryInstance) {
     quitting = true;
     void supervisor.stop().finally(() => app.exit(0));
   });
-
   void app.whenReady().then(startDesktop).catch(async (error) => {
     await showRecovery(error);
   });
@@ -67,6 +67,21 @@ async function startDesktop(): Promise<void> {
   lockDownSession();
   await supervisor.start();
   const transaction = new SettingsTransaction(supervisor, secretStore, bootstrapStore, bootstrap);
+  const updates = new UpdateController({
+    currentVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    isPackaged: app.isPackaged,
+    stagingRoot: path.join(desktopData, "updates"),
+    autoUpdater,
+    openPath: (filePath) => shell.openPath(filePath),
+    beforeInstall: () => prepareForUpdateInstall(() => { quitting = true; }, () => supervisor!.stop()),
+    recoverAfterInstallFailure: async () => {
+      quitting = false;
+      await supervisor!.start();
+    },
+  });
+  updates.on("state", (state) => mainWindow?.webContents.send(IPC_CHANNELS.updatesChanged, state));
   registerIpcHandlers({
     ipcMain,
     window: () => mainWindow,
@@ -81,9 +96,11 @@ async function startDesktop(): Promise<void> {
     }),
     applySettings: (request, progress) => transaction.apply(request, progress),
     runProbe: (request) => supervisor!.runProbe(request),
+    updates,
   });
   mainWindow = createMainWindow();
   mainWindow.on("closed", () => { mainWindow = null; });
+  void updates.initialize();
   if (process.env.BENTO_DESKTOP_SMOKE === "1") {
     mainWindow.webContents.once("did-finish-load", () => setTimeout(() => app.quit(), 250));
   }

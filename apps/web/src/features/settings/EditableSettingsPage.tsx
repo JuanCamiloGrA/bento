@@ -29,6 +29,7 @@ import { cx } from "../../lib/cx";
 import type { ApplyMode, FieldIssue, SettingDefinition } from "../../api/settings";
 import type { SettingsController } from "./useSettingsController";
 import { OnboardingWizard } from "../onboarding/OnboardingWizard";
+import { UpdatePanel } from "./UpdatePanel";
 
 type Category = "overview" | "general" | "storage" | "telegram" | "ai" | "performance" | "advanced";
 
@@ -131,6 +132,7 @@ export function EditableSettingsPage({ controller }: { controller: SettingsContr
                 </div>
                 {category !== "overview" ? <Button onClick={() => controller.resetGroup(category)}><RotateCcw aria-hidden="true" size={15} />{t("settings.reset.section")}</Button> : null}
               </div>
+              {category === "general" && controller.desktop ? <UpdatePanel desktop={controller.desktop} /> : null}
               <div className="divide-y divide-app-border">
                 {visibleFields.length ? visibleFields.map((field) => <SettingField controller={controller} field={field} key={field.key} />) : <p className="p-8 text-center text-sm text-app-text-muted">{t("settings.search.empty")}</p>}
               </div>

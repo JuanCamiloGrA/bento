@@ -94,7 +94,7 @@ Browser/headless UI may edit non-secret settings through the API. Secret editing
 - Build platform-specific Python sidecars in CI; never cross-compile them from another OS.
 - Initial artifacts: Windows installer, signed/notarized macOS DMG, Linux AppImage and/or `.deb` as supported by the selected packager.
 - Bundle or verify ffmpeg and required native libraries per platform. Large embedding models remain optional downloads with checksum, progress, cancellation, and resumability.
-- Code-sign/notarize release artifacts and publish checksums plus an SBOM. Automatic updates are opt-in only after signing and rollback behavior are tested.
+- Code-sign/notarize release artifacts and publish checksums, SBOM, provenance, and one immutable updater manifest per supported platform/architecture. A remote update check reads metadata only; main downloads and verifies exact HTTPS assets by hash/size before serving any Squirrel feed from loopback. Installation is explicit and fails closed on signature, schema, target, hash, size, or feed mismatch.
 
 ## Definition Of Done
 

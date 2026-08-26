@@ -11,6 +11,8 @@ import {
   ProgressEvent,
   SettingsApplyRequest,
   SettingsApplyResult,
+  UpdateInstallResult,
+  UpdateState,
 } from "../shared/contracts";
 
 interface NarrowIpcRenderer {
@@ -43,6 +45,14 @@ export function createBentoBridge(ipc: NarrowIpcRenderer): BentoDesktopBridge {
       status: () => ipc.invoke(IPC_CHANNELS.lifecycleStatus) as Promise<LifecycleStatus>,
       onStatus: (listener: (status: LifecycleStatus) => void) =>
         subscribe(IPC_CHANNELS.lifecycleChanged, listener),
+    }),
+    updates: Object.freeze({
+      getState: () => ipc.invoke(IPC_CHANNELS.updatesState) as Promise<UpdateState>,
+      check: () => ipc.invoke(IPC_CHANNELS.updatesCheck) as Promise<UpdateState>,
+      download: () => ipc.invoke(IPC_CHANNELS.updatesDownload) as Promise<UpdateState>,
+      install: () => ipc.invoke(IPC_CHANNELS.updatesInstall) as Promise<UpdateInstallResult>,
+      onState: (listener: (state: UpdateState) => void) =>
+        subscribe(IPC_CHANNELS.updatesChanged, listener),
     }),
   });
 }

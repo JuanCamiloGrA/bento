@@ -16,6 +16,8 @@ Download the artifact for your architecture from a signed GitHub release:
 
 Verify the matching `SHA256SUMS-*` file before installing. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not general distribution.
 
+Stable desktop releases follow GitHub Flow from short-lived `feature/*` or `fix/*` branches into `main`. Maintainers use the manual **Desktop version bump PR** workflow for a stable SemVer `patch`, `minor`, or `major`; after the version PR and four-platform native validation pass, an immutable matching `vX.Y.Z` tag builds the signed release. Per-target update manifests contain exact GitHub asset URLs, hashes and sizes; update checks are metadata-only and installation remains an explicit, fail-closed desktop action.
+
 See [Desktop installation and first run](docs/desktop/install-first-run.md), [Settings, backup, and recovery](docs/desktop/settings-recovery.md), and [Release and signing](docs/desktop/releasing.md).
 
 ## Runtime Processes

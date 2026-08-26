@@ -10,13 +10,15 @@ Comprueba el hash desde la carpeta de descargas:
 
 ```sh
 # macOS o Linux
-shasum -a 256 -c SHA256SUMS-<plataforma>
+grep '  <nombre-exacto-del-instalador>$' SHA256SUMS-<plataforma> | shasum -a 256 -c -
 ```
+
+Si descargas todos los archivos listados para ese destino, también puedes ejecutar `shasum -a 256 -c SHA256SUMS-<plataforma>` y exigir que cada línea sea `OK`.
 
 En Windows usa PowerShell y compara el resultado con la línea del instalador:
 
 ```powershell
-Get-FileHash .\BentoSetup.exe -Algorithm SHA256
+Get-FileHash '.\Bento-<version> Setup.exe' -Algorithm SHA256
 ```
 
 ## Windows x64

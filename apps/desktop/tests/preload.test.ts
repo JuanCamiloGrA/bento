@@ -24,9 +24,10 @@ describe("preload allowlisted bridge", () => {
 
   it("exposes only the documented narrow surface", () => {
     const bridge = createBentoBridge(electron);
-    expect(Object.keys(bridge).sort()).toEqual(["lifecycle", "pickDirectory", "pickFile", "platform", "settings"]);
+    expect(Object.keys(bridge).sort()).toEqual(["lifecycle", "pickDirectory", "pickFile", "platform", "settings", "updates"]);
     expect(Object.keys(bridge.settings).sort()).toEqual(["apply", "onProgress", "probe"]);
     expect(Object.keys(bridge.lifecycle).sort()).toEqual(["onStatus", "status"]);
+    expect(Object.keys(bridge.updates).sort()).toEqual(["check", "download", "getState", "install", "onState"]);
     expect(Object.isFrozen(bridge)).toBe(true);
     expect(Object.isFrozen(bridge.settings)).toBe(true);
     expect(Object.isFrozen(bridge.lifecycle)).toBe(true);
@@ -48,6 +49,10 @@ describe("preload allowlisted bridge", () => {
     await bridge.settings.apply(apply);
     await bridge.settings.probe(probe);
     await bridge.lifecycle.status();
+    await bridge.updates.getState();
+    await bridge.updates.check();
+    await bridge.updates.download();
+    await bridge.updates.install();
 
     expect(electron.invoke.mock.calls).toEqual([
       [IPC_CHANNELS.platform],
@@ -56,6 +61,10 @@ describe("preload allowlisted bridge", () => {
       [IPC_CHANNELS.settingsApply, apply],
       [IPC_CHANNELS.settingsProbe, probe],
       [IPC_CHANNELS.lifecycleStatus],
+      [IPC_CHANNELS.updatesState],
+      [IPC_CHANNELS.updatesCheck],
+      [IPC_CHANNELS.updatesDownload],
+      [IPC_CHANNELS.updatesInstall],
     ]);
   });
 
@@ -65,20 +74,28 @@ describe("preload allowlisted bridge", () => {
     const lifecycle = vi.fn();
     const removeProgress = bridge.settings.onProgress(progress);
     const removeLifecycle = bridge.lifecycle.onStatus(lifecycle);
+    const update = vi.fn();
+    const removeUpdate = bridge.updates.onState(update);
 
-    expect(electron.on).toHaveBeenCalledTimes(2);
+    expect(electron.on).toHaveBeenCalledTimes(3);
     expect(electron.on.mock.calls[0]?.[0]).toBe(IPC_CHANNELS.settingsProgress);
     expect(electron.on.mock.calls[1]?.[0]).toBe(IPC_CHANNELS.lifecycleChanged);
+    expect(electron.on.mock.calls[2]?.[0]).toBe(IPC_CHANNELS.updatesChanged);
     const progressGuard = electron.on.mock.calls[0]?.[1] as (_event: unknown, payload: unknown) => void;
     const lifecycleGuard = electron.on.mock.calls[1]?.[1] as (_event: unknown, payload: unknown) => void;
+    const updateGuard = electron.on.mock.calls[2]?.[1] as (_event: unknown, payload: unknown) => void;
     progressGuard({}, { phase: "validating", status: "ok" });
     lifecycleGuard({}, { state: "ready", recoveryMode: false });
+    updateGuard({}, { status: "available", currentVersion: "0.1.0", installMode: "manual" });
     expect(progress).toHaveBeenCalledWith({ phase: "validating", status: "ok" });
     expect(lifecycle).toHaveBeenCalledWith({ state: "ready", recoveryMode: false });
+    expect(update).toHaveBeenCalledWith({ status: "available", currentVersion: "0.1.0", installMode: "manual" });
 
     removeProgress();
     removeLifecycle();
+    removeUpdate();
     expect(electron.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.settingsProgress, progressGuard);
     expect(electron.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.lifecycleChanged, lifecycleGuard);
+    expect(electron.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.updatesChanged, updateGuard);
   });
 });
