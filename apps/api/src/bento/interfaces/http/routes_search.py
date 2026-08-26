@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
@@ -89,11 +88,17 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
     data_dir = Path(settings.data_dir)
     clock = SystemClock()
     session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
-    provider = _embedding_provider(data_dir, DisabledEmbeddingProvider, MockEmbeddingProvider, JinaOmniNanoGgufAdapter)
+    provider = _embedding_provider(
+        data_dir,
+        settings,
+        DisabledEmbeddingProvider,
+        MockEmbeddingProvider,
+        JinaOmniNanoGgufAdapter,
+    )
     vector_index = SQLiteVecSearchIndex(
         session_factory,
         clock,
-        dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768")),
+        dimensions=settings.embedding_dimensions,
     )
     dependencies = SearchRouteDependencies(
         search=SearchUseCase(
@@ -112,26 +117,27 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
 
 def _embedding_provider(
     data_dir: Path,
+    settings: Settings,
     disabled_cls: type[Any],
     mock_cls: type[Any],
     jina_cls: type[Any],
 ) -> Any:
-    provider = os.getenv("BENTO_EMBEDDING_PROVIDER", "disabled").strip().lower()
-    dimensions = int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768"))
+    provider = settings.embeddings_provider
+    dimensions = settings.embedding_dimensions
     if provider == "mock":
         return mock_cls(dimensions=dimensions)
     if provider == "jina":
         return jina_cls(
-            model_path=Path(
-                os.getenv(
-                    "BENTO_EMBEDDING_MODEL_PATH",
-                    str(data_dir / "models" / "jina-embeddings-v5-omni-nano.gguf"),
-                )
-            ),
-            endpoint_url=os.getenv("BENTO_EMBEDDING_SERVER_URL", "http://127.0.0.1:8080/v1/embeddings"),
+            model_path=_model_path(settings.jina_model_path, data_dir),
+            endpoint_url=settings.embedding_server_url,
             dimensions=dimensions,
         )
     return disabled_cls()
+
+
+def _model_path(configured: str, data_dir: Path) -> Path:
+    path = Path(configured)
+    return path if path.is_absolute() else (data_dir.parent / path).resolve()
 
 
 def _settings(request: Request) -> Settings:

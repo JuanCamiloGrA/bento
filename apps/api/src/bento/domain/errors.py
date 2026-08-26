@@ -90,3 +90,21 @@ class JobNotRetryableError(DomainError):
 class ValidationFailedError(DomainError):
     def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__("validation_failed", message, details or {})
+
+
+class SettingsRevisionConflictError(DomainError):
+    def __init__(self, *, expected_revision: int, current_revision: int) -> None:
+        super().__init__(
+            "settings_revision_conflict",
+            "Settings were changed by another client",
+            {"expected_revision": expected_revision, "current_revision": current_revision},
+        )
+
+
+class SettingsSourceLockedError(DomainError):
+    def __init__(self, keys: list[str]) -> None:
+        super().__init__(
+            "settings_source_locked",
+            "One or more settings are controlled by the environment or policy",
+            {"keys": sorted(keys)},
+        )

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -74,7 +73,7 @@ def require_telegram_storage_config(
     settings: Any,
     environ: Mapping[str, str] | None = None,
 ) -> TelegramStorageConfig:
-    env = environ if environ is not None else os.environ
+    env = environ if environ is not None else {}
     return TelegramStorageConfig(
         bot_api_url=_setting_or_env(settings, env, "telegram_bot_api_url", "TELEGRAM_BOT_API_URL")
         or "http://telegram-bot-api:8081",
@@ -106,12 +105,12 @@ def require_telegram_storage_config(
 
 
 def _setting_or_env(settings: Any, env: Mapping[str, str], setting_name: str, env_name: str) -> str | None:
-    value = getattr(settings, setting_name, None)
-    if _present(value):
-        return str(value).strip()
     env_value = env.get(env_name)
     if _present(env_value):
         return str(env_value).strip()
+    value = getattr(settings, setting_name, None)
+    if _present(value):
+        return str(value).strip()
     return None
 
 

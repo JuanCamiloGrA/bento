@@ -203,3 +203,20 @@ class SettingModel(Base):
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     value: Mapped[str] = mapped_column(String(2048), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SettingsMetaModel(Base):
+    __tablename__ = "settings_meta"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SettingSecretReferenceModel(Base):
+    __tablename__ = "setting_secret_references"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    reference: Mapped[str | None] = mapped_column(String(256))
+    configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

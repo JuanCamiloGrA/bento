@@ -13,17 +13,31 @@ dependencies = [
   "uvicorn[standard]>=0.34,<0.35",
 ]
 
+[project.scripts]
+bento-sidecar = "bento.interfaces.desktop.launcher:main"
+
 [project.optional-dependencies]
 dev = [
   "httpx>=0.28,<0.29",
   "pre-commit>=4,<5",
   "pytest>=8.3,<9",
 ]
+desktop = [
+  "aiogram>=3,<4",
+  "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  "pillow>=11,<12",
+  "pyinstaller==6.22.2",
+  "pypdfium2>=4.30,<5",
+  "rapidocr>=3,<4",
+]
 media = [
   "pillow>=11,<12",
   "pypdfium2>=4.30,<5",
 ]
 ocr = [
+  "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "rapidocr>=3,<4",
 ]
 telegram = [

@@ -8,8 +8,11 @@ import type { PublicSettings, ProviderState, StorageReclaimResult, WorkerStatus 
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
+import { EditableSettingsPage } from "./EditableSettingsPage";
+import type { SettingsController } from "./useSettingsController";
 
 export type SettingsPageProps = {
+  controller?: SettingsController;
   error?: Error | null;
   isLoading?: boolean;
   isReclaiming?: boolean;
@@ -50,6 +53,7 @@ const workerLabels: Record<string, MessageKey> = {
 };
 
 export function SettingsPage({
+  controller,
   error,
   isLoading = false,
   isReclaiming = false,
@@ -59,6 +63,9 @@ export function SettingsPage({
   reclaimResult,
   settings,
 }: SettingsPageProps) {
+  if (controller) {
+    return <EditableSettingsPage controller={controller} />;
+  }
   const [confirmOpen, setConfirmOpen] = useState(false);
   const items = settings ? settingsItems(settings) : [];
   const maintenance = settings?.storage_maintenance;

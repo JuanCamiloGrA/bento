@@ -40,6 +40,8 @@ def test_initial_migration_creates_expected_sqlite_tables(tmp_path: Path) -> Non
             "jobs",
             "manifest_events",
             "settings",
+            "settings_meta",
+            "setting_secret_references",
             "asset_fts",
         }.issubset(names)
 

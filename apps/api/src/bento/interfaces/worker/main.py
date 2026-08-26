@@ -13,7 +13,7 @@ from bento.adapters.embeddings import (
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
 from bento.adapters.media import BlobSourceMaterializer, LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
-from bento.adapters.ocr import DisabledOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
+from bento.adapters.ocr import DisabledOCRAdapter, MockOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
@@ -22,7 +22,7 @@ from bento.application.media import MediaProcessingService
 from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_session_factory, sqlite_url
-from bento.infrastructure.settings import get_settings
+from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage.factory import create_blob_store
 from bento.interfaces.worker.dispatch import WorkerDispatcher
 
@@ -37,7 +37,7 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
         settings.worker_concurrency,
     )
     event = stop_event or asyncio.Event()
-    dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}")
+    dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
     while not event.is_set():
         processed = await dispatcher.process_one()
         if processed:
@@ -48,8 +48,8 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
             continue
 
 
-def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
-    settings = get_settings()
+def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
+    settings = settings or get_settings()
     data_dir = Path(settings.data_dir)
     clock = SystemClock()
     session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
@@ -74,7 +74,12 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
         manifest=manifest,
         clock=clock,
     )
-    provider = RapidOCRAdapter() if os.getenv("BENTO_OCR_PROVIDER", "rapidocr") == "rapidocr" else DisabledOCRAdapter()
+    if settings.ocr_provider == "rapidocr":
+        provider = RapidOCRAdapter()
+    elif settings.ocr_provider == "mock":
+        provider = MockOCRAdapter()
+    else:
+        provider = DisabledOCRAdapter()
     ocr = OCRIndexingService(
         assets=assets,
         blob_refs=blob_refs,
@@ -90,8 +95,8 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
         assets=assets,
         blob_refs=blob_refs,
         resolver=resolver,
-        provider=_embedding_provider(data_dir),
-        index=SQLiteVecSearchIndex(session_factory, clock, dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768"))),
+        provider=_embedding_provider(data_dir, settings),
+        index=SQLiteVecSearchIndex(session_factory, clock, dimensions=settings.embedding_dimensions),
         manifest=manifest,
         clock=clock,
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
@@ -99,20 +104,18 @@ def _create_dispatcher(worker_id: str) -> WorkerDispatcher:
     return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr, embedding=embedding)
 
 
-def _embedding_provider(data_dir: Path) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:
-    provider = os.getenv("BENTO_EMBEDDING_PROVIDER", "disabled").strip().lower()
+def _embedding_provider(data_dir: Path, settings: Settings) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:
+    provider = settings.embeddings_provider
     if provider == "mock":
-        return MockEmbeddingProvider(dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768")))
+        return MockEmbeddingProvider(dimensions=settings.embedding_dimensions)
     if provider == "jina":
+        model_path = Path(settings.jina_model_path)
+        if not model_path.is_absolute():
+            model_path = (data_dir.parent / model_path).resolve()
         return JinaOmniNanoGgufAdapter(
-            model_path=Path(
-                os.getenv(
-                    "BENTO_EMBEDDING_MODEL_PATH",
-                    str(data_dir / "models" / "jina-embeddings-v5-omni-nano.gguf"),
-                )
-            ),
-            endpoint_url=os.getenv("BENTO_EMBEDDING_SERVER_URL", "http://127.0.0.1:8080/v1/embeddings"),
-            dimensions=int(os.getenv("BENTO_EMBEDDING_DIMENSIONS", "768")),
+            model_path=model_path,
+            endpoint_url=settings.embedding_server_url,
+            dimensions=settings.embedding_dimensions,
         )
     return DisabledEmbeddingProvider()
 

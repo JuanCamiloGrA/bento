@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.domain.indexing import IndexProviderState
-from bento.domain.settings import PublicSettings, WorkerStatus
+from bento.domain.errors import SettingsRevisionConflictError, ValidationFailedError
+from bento.domain.settings import PersistedSettings, PublicSettings, SecretReferenceMutation, WorkerStatus
+from bento.domain.settings_registry import SETTINGS_BY_KEY
 from bento.domain.storage import StorageBackend
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import SettingModel
+from bento.infrastructure.db.models import SettingModel, SettingSecretReferenceModel, SettingsMetaModel
 from bento.ports.repositories import ClockPort
 
 
@@ -36,6 +39,76 @@ class SQLiteSettingsRepository:
         self._clock = clock
         self._defaults = defaults or SettingsDefaults()
 
+    async def load(self) -> PersistedSettings:
+        with session_scope(self._session_factory) as session:
+            values = {setting.key: setting.value for setting in session.scalars(select(SettingModel))}
+            meta = session.get(SettingsMetaModel, 1)
+            references = {
+                item.key: SecretReferenceMutation(reference=item.reference, configured=item.configured)
+                for item in session.scalars(select(SettingSecretReferenceModel))
+            }
+        return PersistedSettings(
+            revision=meta.revision if meta is not None else 0,
+            values=values,
+            secret_references=references,
+        )
+
+    async def compare_and_set(
+        self,
+        *,
+        expected_revision: int,
+        values: dict[str, str],
+        secret_references: dict[str, SecretReferenceMutation],
+    ) -> PersistedSettings:
+        secret_value_keys = [key for key in values if SETTINGS_BY_KEY.get(key) and SETTINGS_BY_KEY[key].secret]
+        if secret_value_keys:
+            raise ValidationFailedError("Secret plaintext cannot be stored", {"keys": sorted(secret_value_keys)})
+        invalid_reference_keys = [
+            key
+            for key, mutation in secret_references.items()
+            if key not in SETTINGS_BY_KEY
+            or not SETTINGS_BY_KEY[key].secret
+            or (mutation.configured and not (mutation.reference or "").startswith(("secure:", "desktop-secret:")))
+            or (not mutation.configured and mutation.reference is not None)
+        ]
+        if invalid_reference_keys:
+            raise ValidationFailedError("Invalid secret reference", {"keys": sorted(invalid_reference_keys)})
+        now = self._clock.now()
+        with session_scope(self._session_factory) as session:
+            meta = session.get(SettingsMetaModel, 1)
+            current_revision = meta.revision if meta is not None else 0
+            if meta is None:
+                session.add(SettingsMetaModel(id=1, revision=0, updated_at=now))
+                session.flush()
+            claimed = session.execute(
+                update(SettingsMetaModel)
+                .where(SettingsMetaModel.id == 1, SettingsMetaModel.revision == expected_revision)
+                .values(revision=expected_revision + 1, updated_at=now)
+            )
+            if claimed.rowcount != 1:
+                current = session.get(SettingsMetaModel, 1)
+                raise SettingsRevisionConflictError(
+                    expected_revision=expected_revision,
+                    current_revision=current.revision if current is not None else current_revision,
+                )
+            for key, value in values.items():
+                session.merge(SettingModel(key=key, value=value, updated_at=now))
+            for key, mutation in secret_references.items():
+                if mutation.configured:
+                    session.merge(
+                        SettingSecretReferenceModel(
+                            key=key,
+                            reference=mutation.reference,
+                            configured=True,
+                            updated_at=now,
+                        )
+                    )
+                else:
+                    existing = session.get(SettingSecretReferenceModel, key)
+                    if existing is not None:
+                        session.delete(existing)
+        return await self.load()
+
     async def get_public_settings(self) -> PublicSettings:
         with session_scope(self._session_factory) as session:
             values = {setting.key: setting.value for setting in session.scalars(select(SettingModel))}
@@ -60,6 +133,8 @@ class SQLiteSettingsRepository:
         )
 
     async def set_value(self, key: str, value: str) -> None:
+        if SETTINGS_BY_KEY.get(key) and SETTINGS_BY_KEY[key].secret:
+            raise ValidationFailedError("Secret plaintext cannot be stored", {"keys": [key]})
         now = self._clock.now()
         with session_scope(self._session_factory) as session:
             session.merge(SettingModel(key=key, value=value, updated_at=now))
@@ -69,7 +144,7 @@ def _enum_value(enum_type: type, raw: str | None, default: object) -> object:
     if raw is None:
         return default
     try:
-        return enum_type(raw)
+        return enum_type(_stored_value(raw))
     except ValueError:
         return default
 
@@ -77,15 +152,18 @@ def _enum_value(enum_type: type, raw: str | None, default: object) -> object:
 def _bool_value(raw: str | None, default: bool) -> bool:
     if raw is None:
         return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+    value = _stored_value(raw)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _int_value(raw: str | None, default: int) -> int:
     if raw is None:
         return default
     try:
-        return int(raw)
-    except ValueError:
+        return int(_stored_value(raw))
+    except (TypeError, ValueError):
         return default
 
 
@@ -94,5 +172,12 @@ def _data_paths(values: dict[str, str], defaults: dict[str, str]) -> dict[str, s
     prefix = "data_path."
     for key, value in values.items():
         if key.startswith(prefix):
-            paths[key.removeprefix(prefix)] = value
+            paths[key.removeprefix(prefix)] = str(_stored_value(value))
     return paths
+
+
+def _stored_value(raw: str) -> object:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
