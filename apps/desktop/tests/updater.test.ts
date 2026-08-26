@@ -57,7 +57,9 @@ describe("controlled desktop updater", () => {
     expect(fixture.fetch).toHaveBeenCalledTimes(3);
     expect(await readFile(path.join(fixture.root, "0.2.0", artifactName))).toEqual(artifactBytes);
     expect(states).toContain("downloading");
-    expect((await stat(path.join(fixture.root, "0.2.0", "download.json"))).mode & 0o777).toBe(0o600);
+    const metadata = await stat(path.join(fixture.root, "0.2.0", "download.json"));
+    expect(metadata.isFile()).toBe(true);
+    if (process.platform !== "win32") expect(metadata.mode & 0o777).toBe(0o600);
   });
 
   it("rehydrates a verified download after relaunch without any network request", async () => {
